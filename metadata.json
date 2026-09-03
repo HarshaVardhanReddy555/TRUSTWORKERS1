@@ -1,0 +1,6 @@
+{
+  "name": "TrustWorkers - Co-op Service Portal",
+  "description": "Community-powered domestic services platform with 0% middleman commission, transparent hourly rates, and verified co-op technicians.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
