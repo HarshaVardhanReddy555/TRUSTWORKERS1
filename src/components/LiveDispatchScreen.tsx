@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, ScreenId } from '../types';
-import { WORKER_RAVI, WORKER_SURESH } from '../mockData';
+import { WORKER_RAVI, WORKER_SURESH, COOPERATIVE_TEAM_RAVI } from '../mockData';
 
 interface LiveDispatchScreenProps {
   booking: Booking;
@@ -15,7 +15,8 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
   onOpenLiveTracking,
   onOpenChat,
 }) => {
-  const [partner2Assigned, setPartner2Assigned] = useState<boolean>(false);
+  const isTeam = (booking?.workerCount || 1) > 1;
+  const [partner2Assigned, setPartner2Assigned] = useState<boolean>(true);
   const [countdown, setCountdown] = useState<number>(38);
 
   useEffect(() => {
@@ -106,201 +107,324 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
         {/* 2-Column Website Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Worker Partner Cards (7 cols) */}
+          {/* Left Column: Worker / Team Cards (7 cols) */}
           <div className="lg:col-span-7 space-y-5">
-            {/* Partner 1 Card (Ravi Kumar) */}
-            <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <span className="text-xs font-bold uppercase tracking-wider bg-[#00342b] text-white px-3 py-1 rounded-full">
-                  Partner 1: Primary Lead • Ready
-                </span>
-                <span className="text-xs font-bold text-[#835500]">Statutory ₹250/hr</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <img
-                      src={WORKER_RAVI.avatarUrl}
-                      alt={WORKER_RAVI.name}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
-                    />
-                    <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
-                      verified
+            {isTeam ? (
+              /* ================= TEAM CARDS (when workerCount > 1) ================= */
+              <>
+                {/* Team Card 1: Primary Matched Team */}
+                <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span className="text-xs font-bold uppercase tracking-wider bg-[#00342b] text-white px-3 py-1 rounded-full">
+                      Matched Team: {COOPERATIVE_TEAM_RAVI.teamName}
+                    </span>
+                    {/* Small counter: "3/5 members available" */}
+                    <span className="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      <span>3/5 members available</span>
                     </span>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_RAVI.name}</h2>
-                      <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
-                    </div>
-                    <p className="text-xs text-[#707975]">{WORKER_RAVI.title} • Undi Mandal</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
-                      <span className="flex items-center gap-0.5 text-[#835500]">
-                        <span className="material-symbols-outlined text-sm">star</span>
-                        <span>{WORKER_RAVI.rating} ({WORKER_RAVI.reviewsCount} reviews)</span>
-                      </span>
-                      <span>•</span>
-                      <span>{WORKER_RAVI.experienceYears} Yrs Exp</span>
-                      <span>•</span>
-                      <span>{WORKER_RAVI.jobsCompleted} Jobs</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => alert(`Calling Ravi Kumar (${WORKER_RAVI.phone})...`)}
-                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">call</span>
-                    <span>Call Worker</span>
-                  </button>
-                  <button
-                    onClick={() => onOpenChat(WORKER_RAVI.name)}
-                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">chat</span>
-                    <span>Direct Chat</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Education & Police clearance badges */}
-              <div className="flex items-center gap-2 flex-wrap pt-1">
-                <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">school</span>
-                  <span>10th SSC & ITI Verified</span>
-                </span>
-                <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">translate</span>
-                  <span>Telugu, Hindi, English</span>
-                </span>
-                <span className="text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 border border-emerald-200">
-                  <span className="material-symbols-outlined text-sm">security</span>
-                  <span>Co-op ₹5L Insurance Shield</span>
-                </span>
-              </div>
-
-              {/* Distance & GPS Quick Launch */}
-              <div className="bg-[#f4f4ef] rounded-2xl p-3.5 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
-                    <span className="material-symbols-outlined text-lg">navigation</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-[#1a1c19] block">2.4 km away • Estimated 15 mins arrival</span>
-                    <span className="text-[11px] text-slate-500">Departing from Undi Mandal Center with toolkit</span>
-                  </div>
-                </div>
-                <button
-                  onClick={onOpenLiveTracking}
-                  className="px-4 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-[#00342b] hover:border-[#00342b] shadow-2xs"
-                >
-                  Live GPS
-                </button>
-              </div>
-            </div>
-
-            {/* Partner 2 Card (Searching vs Confirmed) */}
-            {!partner2Assigned ? (
-              <div className="bg-white rounded-3xl border border-amber-300/80 p-6 text-center shadow-2xs space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="text-xs font-bold uppercase tracking-wider bg-[#ffaa14]/20 text-[#835500] px-3 py-1 rounded-full">
-                    Partner 2: Broadcasting to Hub
-                  </span>
-                  <span className="text-xs text-slate-400">Slot 2 of 2</span>
-                </div>
-
-                {/* Radar Animation Graphic */}
-                <div className="relative w-24 h-24 mx-auto flex items-center justify-center my-3">
-                  <div className="absolute inset-0 rounded-full bg-amber-400/20 animate-ping"></div>
-                  <div className="absolute inset-2 rounded-full bg-amber-300/30 animate-pulse"></div>
-                  <div className="w-14 h-14 rounded-full bg-[#ffaa14] text-[#2a1800] flex items-center justify-center shadow-md z-10">
-                    <span className="material-symbols-outlined text-3xl">radar</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <h3 className="font-bold text-base text-[#1a1c19]">Pinging 4 Nearby Standby Members</h3>
-                  <p className="text-xs text-[#707975] max-w-md mx-auto leading-relaxed">
-                    Request dispatched across Undi & Bhimavaram cluster. If an independent worker does not accept within 60s, our standby hub backup is automatically assigned.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setPartner2Assigned(true)}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-amber-50 hover:bg-amber-100 text-[#835500] border border-amber-300 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-base">bolt</span>
-                  <span>Simulate Partner 2 (Suresh Varma) Accepting</span>
-                </button>
-              </div>
-            ) : (
-              <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4 animate-in fade-in duration-300">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <span className="text-xs font-bold uppercase tracking-wider bg-emerald-700 text-white px-3 py-1 rounded-full">
-                    Partner 2: Confirmed & En Route
-                  </span>
-                  <span className="text-xs font-bold text-[#835500]">Statutory ₹250/hr</span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={WORKER_SURESH.avatarUrl}
-                      alt={WORKER_SURESH.name}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_SURESH.name}</h2>
-                        <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
-                      </div>
-                      <p className="text-xs text-[#707975]">{WORKER_SURESH.title} • Bhimavaram Junction</p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold">
-                        <span className="flex items-center gap-0.5 text-[#835500]">
-                          <span className="material-symbols-outlined text-sm">star</span>
-                          <span>{WORKER_SURESH.rating}</span>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <img
+                          src={COOPERATIVE_TEAM_RAVI.teamLead.avatarUrl}
+                          alt={COOPERATIVE_TEAM_RAVI.teamLead.name}
+                          className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
+                        />
+                        <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
+                          verified
                         </span>
-                        <span>•</span>
-                        <span>{WORKER_SURESH.experienceYears} Yrs Exp</span>
-                        <span>•</span>
-                        <span>{WORKER_SURESH.jobsCompleted} Jobs</span>
                       </div>
+
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h2 className="font-bold text-base text-[#1a1c19]">
+                            {COOPERATIVE_TEAM_RAVI.teamLead.name}
+                          </h2>
+                          <span className="text-[10px] font-extrabold uppercase bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
+                            Team Lead
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#707975]">
+                          {COOPERATIVE_TEAM_RAVI.trade} • Undi Mandal
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
+                          <span className="flex items-center gap-0.5 text-[#835500]">
+                            <span className="material-symbols-outlined text-sm">star</span>
+                            <span>{COOPERATIVE_TEAM_RAVI.rating} ({COOPERATIVE_TEAM_RAVI.reviewsCount} reviews)</span>
+                          </span>
+                          <span>•</span>
+                          <span>{COOPERATIVE_TEAM_RAVI.totalMembers} Members in Guild</span>
+                          <span>•</span>
+                          <span className="text-emerald-700 font-bold">Standard Co-op Collective Fare</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => alert(`Calling Team Lead Ravi Kumar (${COOPERATIVE_TEAM_RAVI.teamLead.phone})...`)}
+                        className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">call</span>
+                        <span>Call Team Lead</span>
+                      </button>
+                      <button
+                        onClick={() => onOpenChat(COOPERATIVE_TEAM_RAVI.teamLead.name)}
+                        className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">chat</span>
+                        <span>Direct Chat</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                  {/* Assigned Crew Breakdown inside card */}
+                  <div className="bg-[#fafaf5] p-3.5 rounded-2xl border border-[#e3e3de] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#1a1c19] flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-emerald-700 text-sm">group</span>
+                        <span>Assigned Crew ({booking.workerCount || 2} Specialists Dispatched):</span>
+                      </span>
+                      <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Lead & Crew Confirmed
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+                        <img
+                          src={COOPERATIVE_TEAM_RAVI.teamLead.avatarUrl}
+                          alt={COOPERATIVE_TEAM_RAVI.teamLead.name}
+                          className="w-9 h-9 rounded-xl object-cover border border-emerald-600"
+                        />
+                        <div className="overflow-hidden min-w-0">
+                          <span className="text-xs font-bold text-[#1a1c19] block truncate">
+                            {COOPERATIVE_TEAM_RAVI.teamLead.name} (Lead)
+                          </span>
+                          <span className="text-[10px] text-emerald-700 block truncate">
+                            Master Electrician & Supervisor
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+                        <img
+                          src={WORKER_SURESH.avatarUrl}
+                          alt={WORKER_SURESH.name}
+                          className="w-9 h-9 rounded-xl object-cover border border-slate-300"
+                        />
+                        <div className="overflow-hidden min-w-0">
+                          <span className="text-xs font-bold text-[#1a1c19] block truncate">
+                            {WORKER_SURESH.name}
+                          </span>
+                          <span className="text-[10px] text-[#707975] block truncate">
+                            Senior Wireman • 6 Yrs Exp
+                          </span>
+                        </div>
+                      </div>
+
+                      {(booking.workerCount || 1) >= 3 && (
+                        <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 sm:col-span-2">
+                          <img
+                            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
+                            alt="Mohan Rao"
+                            className="w-9 h-9 rounded-xl object-cover border border-slate-300"
+                          />
+                          <div className="overflow-hidden min-w-0">
+                            <span className="text-xs font-bold text-[#1a1c19] block truncate">
+                              Mohan Rao
+                            </span>
+                            <span className="text-[10px] text-[#707975] block truncate">
+                              Sanitary & Pipe Specialist • 5 Yrs Exp
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Education & Police clearance badges */}
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">school</span>
+                      <span>All Members 10th SSC & ITI Verified</span>
+                    </span>
+                    <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">translate</span>
+                      <span>Telugu, Hindi, English</span>
+                    </span>
+                    <span className="text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 border border-emerald-200">
+                      <span className="material-symbols-outlined text-sm">security</span>
+                      <span>Co-op ₹5L Insurance Shield</span>
+                    </span>
+                  </div>
+
+                  {/* Distance & GPS Quick Launch */}
+                  <div className="bg-[#f4f4ef] rounded-2xl p-3.5 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <span className="material-symbols-outlined text-lg">navigation</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#1a1c19] block">2.4 km away • Dispatched on Team Vehicle</span>
+                        <span className="text-[11px] text-slate-500">Departing from Undi Mandal Center with full trade gear</span>
+                      </div>
+                    </div>
                     <button
-                      onClick={() => alert(`Calling Suresh Varma (${WORKER_SURESH.phone})...`)}
-                      className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5"
+                      onClick={onOpenLiveTracking}
+                      className="px-4 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-[#00342b] hover:border-[#00342b] shadow-2xs"
                     >
-                      <span className="material-symbols-outlined text-base">call</span>
-                      <span>Call Suresh</span>
-                    </button>
-                    <button
-                      onClick={() => onOpenChat(WORKER_SURESH.name)}
-                      className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5"
-                    >
-                      <span className="material-symbols-outlined text-base">chat</span>
-                      <span>Direct Chat</span>
+                      Live GPS
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-[#f4f4ef] rounded-2xl p-3.5 flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#1a1c19]">1.8 km away • Estimated 12 mins arrival</span>
-                  <button
-                    onClick={onOpenLiveTracking}
-                    className="px-4 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-[#00342b]"
-                  >
-                    Live GPS
-                  </button>
+                {/* Team Card 2: Standby Backup Cooperative Team */}
+                <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span className="text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+                      Standby Team: Bhimavaram Delta Crew B
+                    </span>
+                    {/* Small counter: "4/5 members available" */}
+                    <span className="text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                      <span>4/5 members available</span>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={WORKER_SURESH.avatarUrl}
+                        alt={WORKER_SURESH.name}
+                        className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_SURESH.name}</h2>
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                            Standby Lead
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#707975]">Electrical & General Repairs • Bhimavaram Town</p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold">
+                          <span className="flex items-center gap-0.5 text-[#835500]">
+                            <span className="material-symbols-outlined text-sm">star</span>
+                            <span>4.88 (380 reviews)</span>
+                          </span>
+                          <span>•</span>
+                          <span>4.2 km away • Reserve Unit</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                      Standby Reserve
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </>
+            ) : (
+              /* ================= INDIVIDUAL WORKER CARDS (when workerCount === 1) ================= */
+              <>
+                {/* Partner 1 Card (Ravi Kumar) */}
+                <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span className="text-xs font-bold uppercase tracking-wider bg-[#00342b] text-white px-3 py-1 rounded-full">
+                      Primary Technician • Ready
+                    </span>
+                    <span className="text-xs font-bold text-[#835500]">Statutory ₹250/hr</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <img
+                          src={WORKER_RAVI.avatarUrl}
+                          alt={WORKER_RAVI.name}
+                          className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
+                        />
+                        <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
+                          verified
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_RAVI.name}</h2>
+                          <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
+                        </div>
+                        <p className="text-xs text-[#707975]">{WORKER_RAVI.title} • Undi Mandal</p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
+                          <span className="flex items-center gap-0.5 text-[#835500]">
+                            <span className="material-symbols-outlined text-sm">star</span>
+                            <span>{WORKER_RAVI.rating} ({WORKER_RAVI.reviewsCount} reviews)</span>
+                          </span>
+                          <span>•</span>
+                          <span>{WORKER_RAVI.experienceYears} Yrs Exp</span>
+                          <span>•</span>
+                          <span>{WORKER_RAVI.jobsCompleted} Jobs</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => alert(`Calling Ravi Kumar (${WORKER_RAVI.phone})...`)}
+                        className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">call</span>
+                        <span>Call Worker</span>
+                      </button>
+                      <button
+                        onClick={() => onOpenChat(WORKER_RAVI.name)}
+                        className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">chat</span>
+                        <span>Direct Chat</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Education & Police clearance badges */}
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">school</span>
+                      <span>10th SSC & ITI Verified</span>
+                    </span>
+                    <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">translate</span>
+                      <span>Telugu, Hindi, English</span>
+                    </span>
+                    <span className="text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 border border-emerald-200">
+                      <span className="material-symbols-outlined text-sm">security</span>
+                      <span>Co-op ₹5L Insurance Shield</span>
+                    </span>
+                  </div>
+
+                  {/* Distance & GPS Quick Launch */}
+                  <div className="bg-[#f4f4ef] rounded-2xl p-3.5 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <span className="material-symbols-outlined text-lg">navigation</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#1a1c19] block">2.4 km away • Estimated 15 mins arrival</span>
+                        <span className="text-[11px] text-slate-500">Departing from Undi Mandal Center with toolkit</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={onOpenLiveTracking}
+                      className="px-4 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-xs text-[#00342b] hover:border-[#00342b] shadow-2xs"
+                    >
+                      Live GPS
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
 

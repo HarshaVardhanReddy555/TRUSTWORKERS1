@@ -13,7 +13,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [messages, setMessages] = useState<Array<{ sender: 'partner' | 'user'; text: string; time: string }>>([
     {
       sender: 'partner',
-      text: `Namaste Harsha! I am on my TVS vehicle departing from Undi Mandal Center. Should reach your doorstep in approximately 12-15 minutes.`,
+      text: `Namaste Ram! I am on my TVS vehicle departing from Undi Mandal Center. Should reach your doorstep in approximately 12-15 minutes.`,
       time: '1:52 PM',
     },
     {

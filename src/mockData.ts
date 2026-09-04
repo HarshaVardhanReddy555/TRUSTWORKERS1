@@ -1,4 +1,4 @@
-import { Booking, ActiveJobRequest, ServiceItem, WorkerProfile } from './types';
+import { Booking, ActiveJobRequest, ServiceItem, WorkerProfile, TeamMember, TeamProfile } from './types';
 
 export const INITIAL_SERVICES: ServiceItem[] = [
   {
@@ -99,6 +99,8 @@ export const WORKER_RAVI: WorkerProfile = {
     aadhaarMasked: '•••• 4892 (UIDAI Biometric Verified)',
     upiId: 'ravi.undi@sbi',
   },
+  isTeamLead: true,
+  teamId: 'team-undi-01',
 };
 
 export const WORKER_SURESH: WorkerProfile = {
@@ -129,6 +131,89 @@ export const WORKER_SURESH: WorkerProfile = {
     aadhaarMasked: '•••• 7712 (UIDAI Biometric Verified)',
     upiId: 'suresh.varma@ybl',
   },
+  isTeamLead: false,
+  teamId: 'team-undi-01',
+};
+
+export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
+  {
+    id: 'tm-ravi-01',
+    name: 'Ravi Kumar',
+    role: 'Team Lead & Master Electrician',
+    avatarUrl: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80',
+    rating: 4.92,
+    trade: 'Electrical & Plumbing',
+    experienceYears: 7,
+    availability: 'Available',
+    phone: '+91 98480 23145',
+    qualification: 'SSC & ITI Verified • Shield Insured',
+    jobsCompleted: 482,
+  },
+  {
+    id: 'tm-suresh-02',
+    name: 'Suresh Varma',
+    role: 'Senior Electrician & Wireman',
+    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80',
+    rating: 4.80,
+    trade: 'Electrical & MCB Diagnostics',
+    experienceYears: 6,
+    availability: 'Available',
+    phone: '+91 97011 44520',
+    qualification: '10th Pass • Wireman License #882',
+    jobsCompleted: 312,
+  },
+  {
+    id: 'tm-mohan-03',
+    name: 'Mohan Rao',
+    role: 'Sanitary & Pipe Specialist',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
+    rating: 4.88,
+    trade: 'Plumbing & Drainage',
+    experienceYears: 5,
+    availability: 'Available',
+    phone: '+91 98492 11029',
+    qualification: '10th SSC • Plumbing Co-op Grade B',
+    jobsCompleted: 240,
+  },
+  {
+    id: 'tm-venkat-04',
+    name: 'Venkatesh Prasad',
+    role: 'Apprentice Technician',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+    rating: 4.75,
+    trade: 'General Repairs & Conduit Laying',
+    experienceYears: 3,
+    availability: 'On Job',
+    phone: '+91 96522 84910',
+    qualification: 'ITI Electrical 2021 • Trainee ID #912',
+    jobsCompleted: 118,
+  },
+  {
+    id: 'tm-ramesh-05',
+    name: 'Ramesh K.',
+    role: 'Appliance & Motor Specialist',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=240&auto=format&fit=crop&q=80',
+    rating: 4.90,
+    trade: 'Motors, Pumps & Geysers',
+    experienceYears: 8,
+    availability: 'Off Duty',
+    phone: '+91 94401 77312',
+    qualification: 'Govt Polytechnic Diploma • Master Certified',
+    jobsCompleted: 390,
+  },
+];
+
+export const COOPERATIVE_TEAM_RAVI: TeamProfile = {
+  id: 'team-undi-01',
+  teamName: 'Undi Multi-Trade Guild Crew A',
+  teamLead: WORKER_RAVI,
+  trade: 'Electrical & Multi-Trade Services',
+  rating: 4.94,
+  reviewsCount: 520,
+  totalMembers: 5,
+  availableMembers: 3, // 3/5 members available!
+  hourlyRate: 475,
+  members: INITIAL_TEAM_MEMBERS,
 };
 
 export const INITIAL_BOOKINGS: Booking[] = [
@@ -143,7 +228,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     workerCount: 1,
     durationHours: 2,
     assignedWorkers: [WORKER_RAVI],
-    customerName: 'Harsha Vardhan',
+    customerName: 'Ram',
     customerPhone: '+91 98765 43210',
     address: '42 Cooperative Way, Block B, Flat 302, Green Park, Undi, 534199',
     landmark: 'Near Undi Panchayati Library',
@@ -167,7 +252,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     workerCount: 1,
     durationHours: 1.5,
     assignedWorkers: [WORKER_SURESH],
-    customerName: 'Harsha Vardhan',
+    customerName: 'Ram',
     customerPhone: '+91 98765 43210',
     address: '42 Cooperative Way, Block B, Flat 302, Green Park, Undi',
     problemDescription: 'Installed 2 modern modular boards with surge arrestor.',
@@ -201,7 +286,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
         avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
       },
     ],
-    customerName: 'Harsha Vardhan',
+    customerName: 'Ram',
     customerPhone: '+91 98765 43210',
     address: '42 Cooperative Way, Block B, Flat 302, Green Park, Undi',
     problemDescription: 'Strengthened teak bed frame support & natural polish.',
@@ -234,7 +319,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
         avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
       },
     ],
-    customerName: 'Harsha Vardhan',
+    customerName: 'Ram',
     customerPhone: '+91 98765 43210',
     address: '42 Cooperative Way, Block B, Flat 302, Green Park, Undi',
     problemDescription: 'Replaced fan bearing and cleaned geyser heating element.',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Booking, ScreenId, ServiceItem } from '../types';
-import { WORKER_RAVI } from '../mockData';
+import { WORKER_RAVI, WORKER_SURESH, INITIAL_SERVICES } from '../mockData';
 
 interface ScheduleServiceScreenProps {
   selectedService: ServiceItem;
@@ -13,6 +13,7 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
   onConfirmSchedule,
   setCurrentScreen,
 }) => {
+  const [currentService, setCurrentService] = useState<ServiceItem>(selectedService);
   const [workerCount, setWorkerCount] = useState<number>(1);
   const [selectedDate, setSelectedDate] = useState<string>('05 Sep');
   const [selectedWindow, setSelectedWindow] = useState<'Morning' | 'Afternoon' | 'Evening'>('Afternoon');
@@ -24,9 +25,14 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
   const [locationType, setLocationType] = useState<'home' | 'gps'>('home');
   const [landmark, setLandmark] = useState('Near Undi Panchayati Library, Gate 2');
 
-  const baseRate = selectedService.baseRatePerHour;
-  // Multi-worker rate with co-op discount for 2 workers
-  const hourlyRateCalc = workerCount === 1 ? baseRate : workerCount === 2 ? Math.round(baseRate * 1.9) : baseRate * workerCount;
+  const baseRate = currentService.baseRatePerHour;
+  // Multi-worker rate with co-op discount for 2 workers, standard per-worker rate for 3+
+  const hourlyRateCalc =
+    workerCount === 1
+      ? baseRate
+      : workerCount === 2
+      ? Math.round(baseRate * 1.9)
+      : baseRate * workerCount;
   const estimatedTotal = hourlyRateCalc * durationHours;
 
   const quickTags = [
@@ -37,20 +43,31 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
   ];
 
   const handleCreateBooking = () => {
+    const isTeam = workerCount > 1;
     const newBooking: Booking = {
       id: 'CWS-8495',
-      serviceId: selectedService.id,
-      serviceName: workerCount > 1 ? `Dual ${selectedService.name} & Switchboard Repair` : selectedService.name,
-      category: selectedService.category,
+      serviceId: currentService.id,
+      serviceName: isTeam
+        ? `${workerCount >= 3 ? 'Multi-Trade Crew' : 'Dual Team'}: ${currentService.name} & Trade Support`
+        : currentService.name,
+      category: currentService.category,
       status: 'searching',
       dateStr: selectedDate === '05 Sep' ? 'Today, 05 Sep' : selectedDate,
-      timeWindow: selectedWindow === 'Morning' ? '9:00 AM - 12:00 PM' : selectedWindow === 'Afternoon' ? '2:00 PM - 4:00 PM' : '4:00 PM - 8:00 PM',
+      timeWindow:
+        selectedWindow === 'Morning'
+          ? '9:00 AM - 12:00 PM'
+          : selectedWindow === 'Afternoon'
+          ? '2:00 PM - 4:00 PM'
+          : '4:00 PM - 8:00 PM',
       workerCount,
       durationHours,
-      assignedWorkers: [WORKER_RAVI],
-      customerName: 'Harsha Vardhan',
+      assignedWorkers: isTeam ? [WORKER_RAVI, WORKER_SURESH] : [WORKER_RAVI],
+      customerName: 'Ram',
       customerPhone: '+91 98765 43210',
-      address: locationType === 'home' ? '42 Cooperative Way, Block B, Flat 302, Green Park, Undi, 534199' : 'Current GPS: Undi Main Junction (Near Post Office)',
+      address:
+        locationType === 'home'
+          ? '42 Cooperative Way, Block B, Flat 302, Green Park, Undi, 534199'
+          : 'Current GPS: Undi Main Junction (Near Post Office)',
       landmark,
       problemDescription,
       ratePerHour: baseRate,
@@ -91,7 +108,56 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Left Column: Booking Form (7 cols) */}
           <div className="lg:col-span-7 space-y-5">
-            {/* Worker Count Selection */}
+            {/* Service Category Selection */}
+            <div className="bg-white rounded-3xl border border-[#e3e3de] p-5 shadow-2xs space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#afefdd]/50 flex items-center justify-center text-[#00342b]">
+                    <span className="material-symbols-outlined text-xl">category</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1a1c19]">Service Category</h3>
+                    <p className="text-xs text-[#707975]">
+                      Choose your primary trade service — standardized cooperative rates
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-[#835500] bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                  ₹{currentService.baseRatePerHour}/hr Base
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                {INITIAL_SERVICES.map((svc) => (
+                  <button
+                    key={svc.id}
+                    type="button"
+                    onClick={() => setCurrentService(svc)}
+                    className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
+                      currentService.id === svc.id
+                        ? 'border-[#00342b] bg-emerald-50/50 ring-2 ring-[#00342b] text-[#00342b]'
+                        : 'border-slate-200 hover:border-slate-300 bg-white text-[#1a1c19]'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 ${
+                        currentService.id === svc.id
+                          ? 'bg-[#00342b] text-white'
+                          : 'bg-slate-100 text-[#00342b]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base">{svc.iconName}</span>
+                    </div>
+                    <div className="overflow-hidden min-w-0">
+                      <span className="text-xs font-bold block truncate">{svc.name}</span>
+                      <span className="text-[10px] text-slate-500 block">₹{svc.baseRatePerHour}/hr</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Number of people needed Stepper (1, 2, 3+) right after service category selection */}
             <div className="bg-white rounded-3xl border border-[#e3e3de] p-5 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -99,35 +165,39 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
                     <span className="material-symbols-outlined text-xl">groups</span>
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[#1a1c19]">Technicians Needed</h3>
+                    <h3 className="text-sm font-bold text-[#1a1c19]">Number of people needed</h3>
                     <p className="text-xs text-[#707975]">
-                      Select single or dual cooperative team for simultaneous trade tasks
+                      {workerCount > 1
+                        ? 'Team Assignment Mode active: Co-op lead & specialists dispatched together'
+                        : 'Individual Specialist: Dispatches 1 verified master technician'}
                     </p>
                   </div>
                 </div>
 
-                {/* Stepper */}
+                {/* Stepper (1, 2, 3+) */}
                 <div className="flex items-center border border-slate-200 rounded-xl p-1 bg-slate-50">
                   <button
                     type="button"
                     onClick={() => setWorkerCount(Math.max(1, workerCount - 1))}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-700 hover:bg-white font-bold text-sm"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-700 hover:bg-white font-bold text-sm transition-colors"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center text-xs font-bold text-[#1a1c19]">{workerCount}</span>
+                  <span className="w-10 text-center text-xs font-extrabold text-[#1a1c19]">
+                    {workerCount >= 3 ? `${workerCount}+` : workerCount}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setWorkerCount(Math.min(4, workerCount + 1))}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-700 hover:bg-white font-bold text-sm"
+                    onClick={() => setWorkerCount(Math.min(5, workerCount + 1))}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-700 hover:bg-white font-bold text-sm transition-colors"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1 Worker */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1 Person */}
                 <div
                   onClick={() => setWorkerCount(1)}
                   className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
@@ -137,13 +207,15 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-[#1a1c19]">1 Master Technician</span>
-                    <span className="text-xs font-bold text-[#00342b]">₹{baseRate}/hr</span>
+                    <span className="text-xs font-bold text-[#1a1c19]">1 Person</span>
+                    <span className="text-xs font-bold text-[#00342b]">₹{currentService.baseRatePerHour}/hr</span>
                   </div>
-                  <p className="text-[11px] text-[#707975] leading-normal">Standard fixtures, single leaks, switchboard replacement</p>
+                  <p className="text-[11px] text-[#707975] leading-normal">
+                    Individual master technician for standard repairs & single fixtures
+                  </p>
                 </div>
 
-                {/* 2 Workers */}
+                {/* 2 People */}
                 <div
                   onClick={() => setWorkerCount(2)}
                   className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
@@ -153,19 +225,60 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-[#1a1c19]">Dual Team (2 Workers)</span>
-                      <span className="text-[10px] bg-amber-100 text-[#835500] font-bold px-1.5 py-0.2 rounded">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-[#1a1c19]">2 People</span>
+                      <span className="text-[9px] bg-amber-100 text-[#835500] font-bold px-1.5 py-0.2 rounded">
                         Co-op Disc.
                       </span>
                     </div>
                     <span className="text-xs font-bold text-[#00342b]">
-                      ₹{Math.round(baseRate * 1.9)}/hr
+                      ₹{Math.round(currentService.baseRatePerHour * 1.9)}/hr
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#707975] leading-normal">Simultaneous plumbing + wiring, urgent repairs, heavy tasks</p>
+                  <p className="text-[11px] text-[#707975] leading-normal">
+                    Dual cooperative pair for simultaneous trade tasks & urgent work
+                  </p>
+                </div>
+
+                {/* 3+ Team */}
+                <div
+                  onClick={() => setWorkerCount(3)}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    workerCount >= 3
+                      ? 'border-[#00342b] bg-emerald-50/40 ring-2 ring-[#00342b]'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-[#1a1c19]">3+ Team</span>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                        Team Lead
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-[#00342b]">
+                      ₹{currentService.baseRatePerHour * (workerCount >= 3 ? workerCount : 3)}/hr
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#707975] leading-normal">
+                    Full multi-member trade crew with dedicated Team Lead coordinator
+                  </p>
                 </div>
               </div>
+
+              {workerCount > 1 && (
+                <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 flex items-center justify-between text-xs text-emerald-900">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-700 text-base">diversity_3</span>
+                    <span>
+                      <strong>{workerCount >= 3 ? `${workerCount}+ Member Crew` : 'Dual Cooperative Team'}</strong> will be dispatched under verified Lead supervision.
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                    Team Co-op Rate
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Date & Arrival Slot */}
@@ -402,12 +515,12 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
 
               <div className="flex items-center gap-3.5 pb-2">
                 <div className="w-12 h-12 rounded-2xl bg-[#afefdd]/50 flex items-center justify-center text-[#00342b]">
-                  <span className="material-symbols-outlined text-2xl">{selectedService.iconName}</span>
+                  <span className="material-symbols-outlined text-2xl">{currentService.iconName}</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-[#1a1c19]">{selectedService.name}</h3>
+                  <h3 className="font-bold text-base text-[#1a1c19]">{currentService.name}</h3>
                   <span className="text-xs text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Statutory Rate: ₹{selectedService.baseRatePerHour}/hr
+                    Statutory Rate: ₹{currentService.baseRatePerHour}/hr
                   </span>
                 </div>
               </div>

@@ -39,19 +39,19 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-4">
               <div className="flex items-center gap-4">
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80"
-                  alt="Harsha Vardhan"
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80"
+                  alt="Ram"
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600"
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-base text-[#1a1c19]">Harsha Vardhan</h2>
+                    <h2 className="font-bold text-base text-[#1a1c19]">Ram</h2>
                     <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
                       Citizen Member
                     </span>
                   </div>
                   <p className="text-xs text-[#707975] mt-0.5">+91 98765 43210</p>
-                  <p className="text-xs text-[#707975]">harsha.vardhan@example.com</p>
+                  <p className="text-xs text-[#707975]">ram@example.com</p>
                 </div>
               </div>
 

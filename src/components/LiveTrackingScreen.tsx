@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ScreenId } from '../types';
-import { WORKER_RAVI } from '../mockData';
+import { WORKER_RAVI, WORKER_SURESH, COOPERATIVE_TEAM_RAVI } from '../mockData';
 
 interface LiveTrackingScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
@@ -245,31 +245,65 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
               </h3>
 
               <div className="space-y-4 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                {/* Step 1: Pending */}
                 <div className="relative">
                   <span className="material-symbols-outlined absolute -left-6 top-0 text-emerald-600 text-base bg-white rounded-full">
                     check_circle
                   </span>
                   <div className="text-xs">
-                    <span className="font-bold text-[#1a1c19]">Booking Placed & Fare Locked</span>
-                    <span className="text-[11px] text-slate-400 block">1:45 PM • Standard Statutory Base Rate</span>
+                    <span className="font-bold text-[#1a1c19]">Pending Request Broadcasted</span>
+                    <span className="text-[11px] text-slate-400 block">1:45 PM • Statutory Locked Base Fare</span>
                   </div>
                 </div>
 
+                {/* Step 2: Team Assigned (with stacked avatars) */}
                 <div className="relative">
                   <span className="material-symbols-outlined absolute -left-6 top-0 text-emerald-600 text-base bg-white rounded-full">
                     check_circle
                   </span>
-                  <div className="text-xs">
-                    <span className="font-bold text-[#1a1c19]">Dual Technicians Dispatched</span>
-                    <span className="text-[11px] text-slate-400 block">1:50 PM • Ravi Kumar & Suresh accepted</span>
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#1a1c19]">Team Assigned</span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {COOPERATIVE_TEAM_RAVI.teamName}
+                      </span>
+                    </div>
+                    {/* Stacked avatars for assigned members */}
+                    <div className="flex items-center gap-2 pt-1 pb-1">
+                      <div className="flex items-center -space-x-2 overflow-hidden">
+                        <img
+                          src={WORKER_RAVI.avatarUrl}
+                          alt="Ravi Kumar"
+                          className="inline-block h-7 w-7 rounded-full ring-2 ring-emerald-600 object-cover shadow-xs"
+                          title="Ravi Kumar (Team Lead)"
+                        />
+                        <img
+                          src={WORKER_SURESH.avatarUrl}
+                          alt="Suresh Varma"
+                          className="inline-block h-7 w-7 rounded-full ring-2 ring-white object-cover shadow-xs"
+                          title="Suresh Varma"
+                        />
+                        <img
+                          src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
+                          alt="Mohan Rao"
+                          className="inline-block h-7 w-7 rounded-full ring-2 ring-white object-cover shadow-xs"
+                          title="Mohan Rao"
+                        />
+                      </div>
+                      <span className="text-[11px] text-emerald-800 font-semibold">
+                        Ravi Kumar (Lead) + 2 Specialists
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block">1:50 PM • Guild team accepted dispatch</span>
                   </div>
                 </div>
 
+                {/* Step 3: In Progress (En Route) */}
                 <div className="relative">
                   <span className="inline-block w-3.5 h-3.5 rounded-full bg-amber-500 absolute -left-5 top-0.5 ring-4 ring-amber-100 animate-pulse"></span>
                   <div className="text-xs">
-                    <span className="font-bold text-[#835500]">En Route on TVS Vehicle</span>
-                    <span className="text-[11px] text-slate-500 block">Current estimated arrival: 2:14 PM</span>
+                    <span className="font-bold text-[#835500]">In Progress • En Route on TVS Vehicle</span>
+                    <span className="text-[11px] text-slate-500 block">Current estimated arrival: {etaMinutes} mins remaining</span>
                   </div>
                 </div>
 

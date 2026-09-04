@@ -56,6 +56,37 @@ export interface WorkerProfile {
     aadhaarMasked: string;
     upiId: string;
   };
+  isTeamLead?: boolean;
+  teamId?: string;
+}
+
+export type AvailabilityStatus = 'Available' | 'On Job' | 'Off Duty';
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  avatarUrl: string;
+  rating: number;
+  trade: string;
+  experienceYears: number;
+  availability: AvailabilityStatus;
+  phone: string;
+  qualification: string;
+  jobsCompleted: number;
+}
+
+export interface TeamProfile {
+  id: string;
+  teamName: string;
+  teamLead: WorkerProfile;
+  trade: string;
+  rating: number;
+  reviewsCount: number;
+  totalMembers: number;
+  availableMembers: number;
+  hourlyRate: number;
+  members: TeamMember[];
 }
 
 export interface Booking {

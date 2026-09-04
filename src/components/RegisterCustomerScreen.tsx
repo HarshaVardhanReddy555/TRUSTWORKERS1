@@ -10,9 +10,9 @@ export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
   setCurrentScreen,
   setUserRole,
 }) => {
-  const [fullName, setFullName] = useState('Rahul Sharma');
+  const [fullName, setFullName] = useState('Ram');
   const [mobile, setMobile] = useState('+91 9876543210');
-  const [email, setEmail] = useState('rahul@example.com');
+  const [email, setEmail] = useState('ram@example.com');
   const [password, setPassword] = useState('securepass123');
   const [showPassword, setShowPassword] = useState(false);
   const [houseAddress, setHouseAddress] = useState('House No. 42, Block B, Green Park');

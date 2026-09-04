@@ -14,7 +14,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'customer' | 'worker'>(userRole);
   const [identifier, setIdentifier] = useState(
-    userRole === 'worker' ? 'ravi.electrician.undi@gmail.com' : 'harsha@example.com'
+    userRole === 'worker' ? 'ravi.electrician.undi@gmail.com' : 'ram@example.com'
   );
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,7 +29,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     if (role === 'worker') {
       setIdentifier('ravi.electrician.undi@gmail.com');
     } else {
-      setIdentifier('harsha@example.com');
+      setIdentifier('ram@example.com');
     }
   };
 
@@ -198,7 +198,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               onClick={() => handleTabChange('customer')}
               className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#00342b] font-medium hover:border-emerald-500"
             >
-              Harsha (Customer)
+              Ram (Customer)
             </button>
             <button
               type="button"
@@ -233,7 +233,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 placeholder={
                   activeTab === 'worker'
                     ? 'ravi.electrician.undi@gmail.com or 9848023145'
-                    : 'harsha@example.com or 9876543210'
+                    : 'ram@example.com or 9876543210'
                 }
               />
             </div>
