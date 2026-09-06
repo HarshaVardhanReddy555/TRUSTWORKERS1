@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Booking, ScreenId } from '../types';
-import { WORKER_RAVI, WORKER_SURESH, COOPERATIVE_TEAM_RAVI } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { Booking, ScreenId, TeamProfile } from '../types';
+import { getBookings, getTeamProfile } from '../lib/supabaseService';
 
 interface CustomerBookingsScreenProps {
   activeBooking: Booking | null;
@@ -14,36 +14,80 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
   onOpenLiveTracking,
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
 
-  const pastBookings = [
-    {
-      id: 'CWS-7210',
-      title: 'Ceiling Fan Installation & Regulator Fix',
-      worker: 'Ramesh K. (Certified Electrician)',
-      date: '12 Aug 2024',
-      paid: '₹250',
-      rating: 5,
-      category: 'Electrical',
-    },
-    {
-      id: 'CWS-6894',
-      title: 'Kitchen Sink Drain Unclogging',
-      worker: 'Suresh V. (Sanitary Specialist)',
-      date: '28 Jul 2024',
-      paid: '₹220',
-      rating: 5,
-      category: 'Plumbing',
-    },
-    {
-      id: 'CWS-5942',
-      title: 'Main MCB Safety Earthing Inspection',
-      worker: 'Ravi Kumar (Lead Electrician)',
-      date: '15 Jul 2024',
-      paid: '₹350',
-      rating: 5,
-      category: 'Electrical',
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [bookingsData, teamData] = await Promise.all([
+          getBookings(),
+          getTeamProfile(),
+        ]);
+        if (isMounted) {
+          setLiveBookings(bookingsData);
+          setTeamProfile(teamData);
+        }
+      } catch (err) {
+        console.warn('Error loading bookings from Supabase:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingBookings(false);
+        }
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const completedLiveBookings = liveBookings.filter((b) => b.status === 'completed');
+
+  const pastBookings = completedLiveBookings.length > 0
+    ? completedLiveBookings.map((b) => ({
+        id: b.id.length > 8 ? b.id.slice(0, 8).toUpperCase() : b.id,
+        title: b.serviceName,
+        worker: b.assignedWorkers?.[0]?.name ? `${b.assignedWorkers[0].name} (${b.assignedWorkers[0].title})` : 'Ravi Kumar (Master Electrician)',
+        date: b.completedDate || b.dateStr,
+        paid: `₹${b.paidAmount || b.totalAmount}`,
+        rating: b.ratingGiven || 5,
+        category: b.category,
+      }))
+    : [
+        {
+          id: 'CWS-7210',
+          title: 'Ceiling Fan Installation & Regulator Fix',
+          worker: 'Ramesh K. (Certified Electrician)',
+          date: '12 Aug 2024',
+          paid: '₹250',
+          rating: 5,
+          category: 'Electrical',
+        },
+        {
+          id: 'CWS-6894',
+          title: 'Kitchen Sink Drain Unclogging',
+          worker: 'Suresh V. (Sanitary Specialist)',
+          date: '28 Jul 2024',
+          paid: '₹220',
+          rating: 5,
+          category: 'Plumbing',
+        },
+        {
+          id: 'CWS-5942',
+          title: 'Main MCB Safety Earthing Inspection',
+          worker: 'Ravi Kumar (Lead Electrician)',
+          date: '15 Jul 2024',
+          paid: '₹350',
+          rating: 5,
+          category: 'Electrical',
+        },
+      ];
+
+  const leadWorker = teamProfile?.teamLead;
+  const teamMembersList = teamProfile?.members || [];
 
   return (
     <div className="min-h-screen bg-[#fafaf5] text-[#1a1c19] py-6 px-4 sm:px-6 lg:px-8 pb-20">
@@ -158,26 +202,20 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
                       <div className="relative flex items-center justify-center h-8">
                         {/* Stacked avatars */}
                         <div className="flex items-center -space-x-2">
-                          <img
-                            src={WORKER_RAVI.avatarUrl}
-                            alt="Ravi Kumar"
-                            className="w-8 h-8 rounded-full ring-2 ring-emerald-600 object-cover shadow-xs"
-                            title="Ravi Kumar (Team Lead)"
-                          />
-                          <img
-                            src={WORKER_SURESH.avatarUrl}
-                            alt="Suresh Varma"
-                            className="w-8 h-8 rounded-full ring-2 ring-white object-cover shadow-xs"
-                            title="Suresh Varma"
-                          />
-                          {(activeBooking.workerCount || 2) >= 3 && (
+                          {(activeBooking.assignedWorkers && activeBooking.assignedWorkers.length > 0
+                            ? activeBooking.assignedWorkers
+                            : teamMembersList.slice(0, activeBooking.workerCount || 2)
+                          ).map((w, idx) => (
                             <img
-                              src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
-                              alt="Mohan Rao"
-                              className="w-8 h-8 rounded-full ring-2 ring-white object-cover shadow-xs"
-                              title="Mohan Rao"
+                              key={w.id || idx}
+                              src={w.avatarUrl}
+                              alt={w.name}
+                              className={`w-8 h-8 rounded-full ring-2 ${
+                                idx === 0 ? 'ring-emerald-600' : 'ring-white'
+                              } object-cover shadow-xs`}
+                              title={`${w.name} ${idx === 0 ? '(Team Lead)' : ''}`}
                             />
-                          )}
+                          ))}
                         </div>
                       </div>
                       <span className="text-xs font-bold text-emerald-800">Team Assigned</span>
@@ -209,35 +247,31 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
                   <div className="bg-white p-3.5 rounded-xl border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center -space-x-2.5 overflow-hidden shrink-0">
-                        <img
-                          src={WORKER_RAVI.avatarUrl}
-                          alt="Ravi Kumar"
-                          className="inline-block h-9 w-9 rounded-full ring-2 ring-emerald-500 object-cover"
-                        />
-                        <img
-                          src={WORKER_SURESH.avatarUrl}
-                          alt="Suresh Varma"
-                          className="inline-block h-9 w-9 rounded-full ring-2 ring-white object-cover"
-                        />
-                        {(activeBooking.workerCount || 2) >= 3 && (
+                        {(activeBooking.assignedWorkers && activeBooking.assignedWorkers.length > 0
+                          ? activeBooking.assignedWorkers
+                          : teamMembersList.slice(0, activeBooking.workerCount || 2)
+                        ).map((w, idx) => (
                           <img
-                            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
-                            alt="Mohan Rao"
-                            className="inline-block h-9 w-9 rounded-full ring-2 ring-white object-cover"
+                            key={w.id || idx}
+                            src={w.avatarUrl}
+                            alt={w.name}
+                            className={`inline-block h-9 w-9 rounded-full ring-2 ${
+                              idx === 0 ? 'ring-emerald-500' : 'ring-white'
+                            } object-cover`}
                           />
-                        )}
+                        ))}
                       </div>
                       <div>
                         <span className="font-bold text-[#1a1c19] block">
-                          Assigned Team: {COOPERATIVE_TEAM_RAVI.teamName}
+                          Assigned Team: {teamProfile?.teamName || 'Undi Multi-Trade Guild Crew A'}
                         </span>
                         <span className="text-[11px] text-[#707975]">
-                          Team Lead: Ravi Kumar • {activeBooking.workerCount || 2} Active Members on Assignment
+                          Team Lead: {leadWorker?.name || 'Ravi Kumar'} • {activeBooking.workerCount || 2} Active Members on Assignment
                         </span>
                       </div>
                     </div>
                     <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 self-start sm:self-auto">
-                      ★ {COOPERATIVE_TEAM_RAVI.rating} Team Rating
+                      ★ {teamProfile?.rating || 4.94} Team Rating
                     </span>
                   </div>
                 </div>

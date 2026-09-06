@@ -108,7 +108,7 @@ export interface Booking {
   ratePerHour: number;
   totalAmount: number;
   paidAmount?: number;
-  paymentMethod?: 'UPI' | 'Card' | 'Net Banking' | 'Cash';
+  paymentMethod?: string;
   paymentStatus?: 'pending' | 'paid';
   completedDate?: string;
   ratingGiven?: number;
@@ -132,4 +132,15 @@ export interface ActiveJobRequest {
   status: 'pending' | 'accepted' | 'declined';
   timeNotice?: string;
   slotType?: 'urgent' | 'today' | 'tomorrow';
+}
+
+export interface CustomerProfile {
+  id?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  avatarUrl?: string;
+  address?: string;
+  cluster?: string;
+  membershipId?: string;
 }

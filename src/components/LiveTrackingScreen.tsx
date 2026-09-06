@@ -1,19 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { ScreenId } from '../types';
-import { WORKER_RAVI, WORKER_SURESH, COOPERATIVE_TEAM_RAVI } from '../mockData';
+import { Booking, ScreenId, TeamProfile, WorkerProfile } from '../types';
+import { getTeamProfile, getWorkers } from '../lib/supabaseService';
 
 interface LiveTrackingScreenProps {
+  booking: Booking | null;
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenChat: (partnerName: string) => void;
+  onUpdateBookingStatus?: (
+    status: 'searching' | 'assigned' | 'en-route' | 'in-progress' | 'completed' | 'cancelled',
+    stepCurrent?: number
+  ) => void;
 }
 
 export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
+  booking,
   setCurrentScreen,
   onOpenChat,
+  onUpdateBookingStatus,
 }) => {
   const [etaMinutes, setEtaMinutes] = useState(12);
   const [distanceKm, setDistanceKm] = useState(2.1);
   const [copiedOtp, setCopiedOtp] = useState(false);
+  const [workUnderway, setWorkUnderway] = useState<boolean>(booking?.status === 'in-progress');
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
+  const [workersList, setWorkersList] = useState<WorkerProfile[]>([]);
+
+  useEffect(() => {
+    // If entered tracking and status is not yet en-route or in-progress, set to en-route
+    if (booking && (booking.status === 'searching' || booking.status === 'assigned')) {
+      onUpdateBookingStatus?.('en-route', 3);
+    }
+  }, [booking?.status, onUpdateBookingStatus]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [teamData, workersData] = await Promise.all([
+          getTeamProfile(),
+          getWorkers(),
+        ]);
+        if (isMounted) {
+          setTeamProfile(teamData);
+          setWorkersList(workersData);
+        }
+      } catch (err) {
+        console.warn('Error loading live tracking data from Supabase:', err);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const leadWorker = teamProfile?.teamLead || workersList[0];
+  const secondWorker = workersList[1] || leadWorker;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -143,13 +185,13 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <img
-                    src={WORKER_RAVI.avatarUrl}
-                    alt={WORKER_RAVI.name}
+                    src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                    alt={leadWorker?.name || 'Ravi Kumar'}
                     className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
                   />
                   <div>
-                    <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_RAVI.name}</h2>
-                    <p className="text-xs text-[#707975]">Lead Cooperative Electrician & Plumber</p>
+                    <h2 className="font-bold text-base text-[#1a1c19]">{leadWorker?.name || 'Ravi Kumar'}</h2>
+                    <p className="text-xs text-[#707975]">{leadWorker?.title || 'Lead Cooperative Electrician & Plumber'}</p>
                     <div className="text-xs text-emerald-800 font-semibold flex items-center gap-1 mt-1">
                       <span className="material-symbols-outlined text-sm">verified</span>
                       <span>10th SSC & ITI Verified • Police Cleared</span>
@@ -180,7 +222,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
               {/* Quick Actions */}
               <div className="grid grid-cols-3 gap-3 pt-1">
                 <button
-                  onClick={() => alert(`Calling ${WORKER_RAVI.name} (${WORKER_RAVI.phone})...`)}
+                  onClick={() => alert(`Calling ${leadWorker?.name || 'Ravi Kumar'} (${leadWorker?.phone || '+91 98480 12345'})...`)}
                   className="py-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">call</span>
@@ -188,7 +230,7 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
                 </button>
 
                 <button
-                  onClick={() => onOpenChat(WORKER_RAVI.name)}
+                  onClick={() => onOpenChat(leadWorker?.name || 'Ravi Kumar')}
                   className="py-2.5 rounded-xl bg-white border border-slate-200 text-[#1a1c19] font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">chat</span>
@@ -265,23 +307,23 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-[#1a1c19]">Team Assigned</span>
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {COOPERATIVE_TEAM_RAVI.teamName}
+                        {teamProfile?.teamName || 'Undi Multi-Trade Guild Crew A'}
                       </span>
                     </div>
                     {/* Stacked avatars for assigned members */}
                     <div className="flex items-center gap-2 pt-1 pb-1">
                       <div className="flex items-center -space-x-2 overflow-hidden">
                         <img
-                          src={WORKER_RAVI.avatarUrl}
-                          alt="Ravi Kumar"
+                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                          alt={leadWorker?.name || 'Ravi Kumar'}
                           className="inline-block h-7 w-7 rounded-full ring-2 ring-emerald-600 object-cover shadow-xs"
-                          title="Ravi Kumar (Team Lead)"
+                          title={`${leadWorker?.name || 'Ravi Kumar'} (Team Lead)`}
                         />
                         <img
-                          src={WORKER_SURESH.avatarUrl}
-                          alt="Suresh Varma"
+                          src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
+                          alt={secondWorker?.name || 'Suresh Varma'}
                           className="inline-block h-7 w-7 rounded-full ring-2 ring-white object-cover shadow-xs"
-                          title="Suresh Varma"
+                          title={secondWorker?.name || 'Suresh Varma'}
                         />
                         <img
                           src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
@@ -291,30 +333,42 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
                         />
                       </div>
                       <span className="text-[11px] text-emerald-800 font-semibold">
-                        Ravi Kumar (Lead) + 2 Specialists
+                        {leadWorker?.name || 'Ravi Kumar'} (Lead) + 2 Specialists
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-400 block">1:50 PM • Guild team accepted dispatch</span>
                   </div>
                 </div>
 
-                {/* Step 3: In Progress (En Route) */}
+                {/* Step 3: En Route */}
                 <div className="relative">
-                  <span className="inline-block w-3.5 h-3.5 rounded-full bg-amber-500 absolute -left-5 top-0.5 ring-4 ring-amber-100 animate-pulse"></span>
+                  <span className={`inline-block w-3.5 h-3.5 rounded-full absolute -left-5 top-0.5 ring-4 ${
+                    workUnderway ? 'bg-emerald-600 ring-emerald-100' : 'bg-amber-500 ring-amber-100 animate-pulse'
+                  }`}></span>
                   <div className="text-xs">
-                    <span className="font-bold text-[#835500]">In Progress • En Route on TVS Vehicle</span>
-                    <span className="text-[11px] text-slate-500 block">Current estimated arrival: {etaMinutes} mins remaining</span>
+                    <span className={`font-bold ${workUnderway ? 'text-emerald-800' : 'text-[#835500]'}`}>
+                      {workUnderway ? 'Technicians Arrived on TVS Vehicle' : 'En Route on TVS Vehicle'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      {workUnderway ? 'Arrived at destination' : `Current estimated arrival: ${etaMinutes} mins remaining`}
+                    </span>
                   </div>
                 </div>
 
-                <div className="relative opacity-60">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 absolute -left-4.5 top-1"></span>
+                {/* Step 4: In Progress (Work Execution) */}
+                <div className={`relative ${workUnderway ? '' : 'opacity-60'}`}>
+                  <span className={`w-3.5 h-3.5 rounded-full absolute -left-5 top-0.5 ${
+                    workUnderway ? 'bg-amber-500 ring-4 ring-amber-100 animate-pulse' : 'bg-slate-300'
+                  }`}></span>
                   <div className="text-xs">
                     <span className="font-bold text-slate-700">Work Execution & Quality Inspection</span>
-                    <span className="text-[11px] text-slate-400 block">Requires Doorstep OTP 4892</span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {workUnderway ? 'Active on site • Diagnostic & fix in progress' : 'Requires Doorstep OTP 4892 upon arrival'}
+                    </span>
                   </div>
                 </div>
 
+                {/* Step 5: Direct Settlement */}
                 <div className="relative opacity-60">
                   <span className="w-2.5 h-2.5 rounded-full bg-slate-300 absolute -left-4.5 top-1"></span>
                   <div className="text-xs">
@@ -325,13 +379,26 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
               </div>
 
               {/* Action Button */}
-              <button
-                onClick={() => setCurrentScreen('payment-confirm')}
-                className="w-full py-3.5 bg-[#00342b] hover:bg-[#004d40] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-              >
-                <span>Worker Arrived • Proceed to Settlement</span>
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
-              </button>
+              {!workUnderway ? (
+                <button
+                  onClick={() => {
+                    setWorkUnderway(true);
+                    onUpdateBookingStatus?.('in-progress', 4);
+                  }}
+                  className="w-full py-3.5 bg-[#00342b] hover:bg-[#004d40] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">verified_user</span>
+                  <span>Worker Arrived • Verify OTP (4892) & Start Work</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentScreen('payment-confirm')}
+                  className="w-full py-3.5 bg-[#00342b] hover:bg-[#004d40] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <span>Work Completed • Proceed to Settlement</span>
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

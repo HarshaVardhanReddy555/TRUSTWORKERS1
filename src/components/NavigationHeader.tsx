@@ -1,11 +1,13 @@
 import React from 'react';
-import { ScreenId, UserRole } from '../types';
+import { CustomerProfile, ScreenId, UserRole } from '../types';
+import { CustomerAvatar } from './CustomerAvatar';
 
 interface NavigationHeaderProps {
   currentScreen: ScreenId;
   setCurrentScreen: (screen: ScreenId) => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
+  customer?: CustomerProfile;
   onOpenNotifications?: () => void;
   unreadCount?: number;
 }
@@ -15,6 +17,7 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   setCurrentScreen,
   userRole,
   setUserRole,
+  customer,
   unreadCount = 2,
 }) => {
   const isLoggedIn = !['welcome', 'login', 'register-customer', 'register-worker'].includes(currentScreen);
@@ -205,7 +208,7 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
                 )}
               </button>
 
-              {/* Profile Icon Avatar & Name Pill: displays Ram when customer or Ravi Kumar when worker */}
+              {/* Profile Icon Avatar & Name Pill: displays dynamic customer name or Ravi Kumar when worker */}
               <button
                 onClick={() => {
                   if (userRole === 'worker') setCurrentScreen('worker-profile');
@@ -214,27 +217,23 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
                 className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-[#004d40] border border-emerald-500/50 text-emerald-100 hover:border-emerald-300 transition-colors"
                 title="View Profile"
               >
-                <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
-                  {userRole === 'worker' ? (
+                {userRole === 'worker' ? (
+                  <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
                     <img
                       src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=120&auto=format&fit=crop&q=80"
                       alt="Ravi Kumar"
                       className="w-full h-full object-cover"
                     />
-                  ) : (
-                    <img
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80"
-                      alt="Ram"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <CustomerAvatar name={customer?.name || 'Customer'} size="sm" />
+                )}
                 <div className="text-left hidden sm:block">
                   <span className="block text-xs font-bold leading-tight">
-                    {userRole === 'worker' ? 'Ravi Kumar' : 'Ram'}
+                    {userRole === 'worker' ? 'Ravi Kumar' : customer?.name || 'Citizen Member'}
                   </span>
                   <span className="text-[10px] text-emerald-300 leading-none">
-                    {userRole === 'worker' ? 'Master Electrician' : 'Member #CM-4821'}
+                    {userRole === 'worker' ? 'Master Electrician' : 'Citizen Member'}
                   </span>
                 </div>
               </button>

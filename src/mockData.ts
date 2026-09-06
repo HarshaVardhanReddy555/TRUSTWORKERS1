@@ -2,7 +2,7 @@ import { Booking, ActiveJobRequest, ServiceItem, WorkerProfile, TeamMember, Team
 
 export const INITIAL_SERVICES: ServiceItem[] = [
   {
-    id: 'elec-1',
+    id: '40000000-0000-0000-0000-000000000001',
     name: 'Electrician',
     category: 'Electrical',
     baseRatePerHour: 200,
@@ -14,7 +14,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     popular: true,
   },
   {
-    id: 'plumb-1',
+    id: '40000000-0000-0000-0000-000000000002',
     name: 'Plumber',
     category: 'Plumbing',
     baseRatePerHour: 250,
@@ -26,7 +26,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     popular: true,
   },
   {
-    id: 'carp-1',
+    id: '40000000-0000-0000-0000-000000000003',
     name: 'Carpenter',
     category: 'Carpentry',
     baseRatePerHour: 250,
@@ -37,7 +37,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     iconName: 'carpenter',
   },
   {
-    id: 'paint-1',
+    id: '40000000-0000-0000-0000-000000000004',
     name: 'Painter',
     category: 'Painting',
     baseRatePerHour: 300,
@@ -48,7 +48,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     iconName: 'format_paint',
   },
   {
-    id: 'app-1',
+    id: '40000000-0000-0000-0000-000000000005',
     name: 'Appliance Repair',
     category: 'Appliances',
     baseRatePerHour: 350,
@@ -59,7 +59,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     iconName: 'kitchen',
   },
   {
-    id: 'clean-1',
+    id: '40000000-0000-0000-0000-000000000006',
     name: 'Home Cleaning & Pest',
     category: 'Cleaning',
     baseRatePerHour: 400,

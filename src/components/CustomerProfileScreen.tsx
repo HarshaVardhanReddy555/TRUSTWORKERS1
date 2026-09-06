@@ -1,15 +1,50 @@
-import React from 'react';
-import { ScreenId, UserRole } from '../types';
+import React, { useState } from 'react';
+import { CustomerProfile, ScreenId, UserRole } from '../types';
+import { CustomerAvatar } from './CustomerAvatar';
+import { saveCustomerToSupabase } from '../lib/supabaseService';
 
 interface CustomerProfileScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   setUserRole: (role: UserRole) => void;
+  customer?: CustomerProfile;
+  onUpdateCustomer?: (customer: CustomerProfile) => void;
 }
 
 export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   setCurrentScreen,
   setUserRole,
+  customer,
+  onUpdateCustomer,
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(customer?.name || 'Citizen Member');
+  const [phone, setPhone] = useState(customer?.phone || '+91 98765 43210');
+  const [email, setEmail] = useState(customer?.email || 'member@trustworkers.coop');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const updated = await saveCustomerToSupabase({
+        id: customer?.id,
+        name: name.trim() || 'Citizen Member',
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+      });
+      if (onUpdateCustomer) {
+        onUpdateCustomer(updated);
+      }
+      setIsEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.warn('Error updating customer profile:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-[#fafaf5] text-[#1a1c19] py-6 px-4 sm:px-6 lg:px-8 pb-20">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -37,23 +72,105 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
           <div className="lg:col-span-5 space-y-5">
             {/* User Profile Card */}
             <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-4">
-              <div className="flex items-center gap-4">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80"
-                  alt="Ram"
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-base text-[#1a1c19]">Ram</h2>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
-                      Citizen Member
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#707975] mt-0.5">+91 98765 43210</p>
-                  <p className="text-xs text-[#707975]">ram@example.com</p>
+              {saveSuccess && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                  <span>Profile updated in cooperative registry!</span>
                 </div>
-              </div>
+              )}
+
+              {!isEditing ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <CustomerAvatar name={customer?.name || name} size="xl" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-bold text-base text-[#1a1c19]">
+                            {customer?.name || name || 'Citizen Member'}
+                          </h2>
+                          <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
+                            Citizen Member
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#707975] mt-0.5">{customer?.phone || phone}</p>
+                        <p className="text-xs text-[#707975]">{customer?.email || email || 'Not provided'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="text-xs font-bold text-[#00342b] hover:bg-slate-100 p-2 rounded-xl transition-colors flex items-center gap-1"
+                      title="Edit Profile"
+                    >
+                      <span className="material-symbols-outlined text-base">edit</span>
+                      <span className="hidden sm:inline">Edit</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={handleSaveProfile} className="space-y-3">
+                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                    <CustomerAvatar name={name} size="lg" />
+                    <div>
+                      <span className="text-xs font-bold text-[#1a1c19] block">Editing Profile</span>
+                      <span className="text-[10px] text-slate-500">Updates saved directly to Supabase</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#707975] mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      placeholder="Enter your full name"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-[#00342b]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#707975] mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      placeholder="e.g. +91 98765 43210"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-[#00342b]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#707975] mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. user@example.com"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-[#00342b]"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="flex-1 py-2 bg-[#00342b] hover:bg-[#004d40] text-white rounded-xl text-xs font-bold transition-colors"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
 
               <div className="bg-[#fafaf5] rounded-2xl p-3.5 border border-[#e3e3de] text-xs space-y-1.5">
                 <div className="flex justify-between text-[#707975]">

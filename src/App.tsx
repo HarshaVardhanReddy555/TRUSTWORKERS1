@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import { Booking, ScreenId, ServiceItem, UserRole } from './types';
-import { INITIAL_SERVICES, SAMPLE_ACTIVE_BOOKING } from './mockData';
+import React, { useState, useEffect } from 'react';
+import { Booking, CustomerProfile, ScreenId, ServiceItem, UserRole } from './types';
+import {
+  getServices,
+  getActiveBooking,
+  createBookingInSupabase,
+  updateBookingStatusInSupabase,
+} from './lib/supabaseService';
 import { NavigationHeader } from './components/NavigationHeader';
 import { BottomNav } from './components/BottomNav';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -18,29 +23,132 @@ import { CustomerBookingsScreen } from './components/CustomerBookingsScreen';
 import { CustomerProfileScreen } from './components/CustomerProfileScreen';
 import { ChatScreen } from './components/ChatScreen';
 
+
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('welcome');
   const [userRole, setUserRole] = useState<UserRole>('customer');
-  const [services] = useState<ServiceItem[]>(INITIAL_SERVICES);
-  const [selectedService, setSelectedService] = useState<ServiceItem>(INITIAL_SERVICES[0]);
-  const [activeBooking, setActiveBooking] = useState<Booking | null>(SAMPLE_ACTIVE_BOOKING);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
+  const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [chatPartnerName, setChatPartnerName] = useState<string>('Ravi Kumar');
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Load initial services & active booking from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInitialData() {
+      try {
+        const [loadedServices, loadedBooking] = await Promise.all([
+          getServices(),
+          getActiveBooking(),
+        ]);
+        if (isMounted) {
+          setServices(loadedServices);
+          if (loadedServices.length > 0) {
+            setSelectedService(loadedServices[0]);
+          }
+          setActiveBooking(loadedBooking);
+        }
+      } catch (err) {
+        console.warn('Error loading initial Supabase data:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
+      }
+    }
+    loadInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSelectService = (service: ServiceItem) => {
     setSelectedService(service);
   };
 
-  const handleConfirmSchedule = (booking: Booking) => {
-    setActiveBooking(booking);
+  const handleConfirmSchedule = async (booking: Booking) => {
+    try {
+      const persisted = await createBookingInSupabase(booking);
+      setActiveBooking(persisted);
+    } catch (err) {
+      console.warn('Error persisting booking to Supabase:', err);
+      setActiveBooking(booking);
+    }
   };
 
-  const handlePaymentSuccess = () => {
+  const handleUpdateBookingStatus = async (
+    status: 'searching' | 'assigned' | 'en-route' | 'in-progress' | 'completed' | 'cancelled',
+    stepCurrent?: number,
+    paidAmount?: number,
+    paymentStatus?: 'pending' | 'paid',
+    paymentMethod?: string,
+    ratingGiven?: number,
+    reviewComment?: string
+  ) => {
     if (activeBooking) {
-      setActiveBooking({
+      const updated: Booking = {
+        ...activeBooking,
+        status,
+        ...(stepCurrent != null ? { stepCurrent } : {}),
+        ...(paidAmount != null ? { paidAmount } : {}),
+        ...(paymentStatus != null ? { paymentStatus } : {}),
+        ...(paymentMethod != null ? { paymentMethod } : {}),
+        ...(ratingGiven != null ? { ratingGiven } : {}),
+        ...(reviewComment != null ? { reviewComment } : {}),
+      };
+      setActiveBooking(updated);
+      try {
+        await updateBookingStatusInSupabase(
+          activeBooking.id,
+          status,
+          stepCurrent,
+          paidAmount,
+          paymentStatus,
+          paymentMethod,
+          ratingGiven,
+          reviewComment
+        );
+      } catch (err) {
+        console.warn(`Error updating booking status to ${status} in Supabase:`, err);
+      }
+    }
+  };
+
+  const handlePaymentSuccess = async (
+    method: string = 'UPI',
+    rating?: number,
+    feedback?: string
+  ) => {
+    if (activeBooking) {
+      const paidAmt = activeBooking.totalAmount ?? 0;
+      const updated: Booking = {
         ...activeBooking,
         status: 'completed',
         stepCurrent: 5,
-      });
+        paymentStatus: 'paid',
+        paymentMethod: method,
+        paidAmount: paidAmt,
+        completedDate: 'Today, 05 Sep',
+        ...(rating != null ? { ratingGiven: rating } : {}),
+        ...(feedback != null ? { reviewComment: feedback } : {}),
+      };
+      setActiveBooking(updated);
+      try {
+        await updateBookingStatusInSupabase(
+          activeBooking.id,
+          'completed',
+          5,
+          paidAmt,
+          'paid',
+          method,
+          rating,
+          feedback
+        );
+      } catch (err) {
+        console.warn('Error updating payment in Supabase:', err);
+      }
     }
   };
 
@@ -59,11 +167,12 @@ export function App() {
     <div className="min-h-screen bg-[#fafaf5] flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-900">
       {/* Top Global Navigation Bar (Includes Role Switcher & Screen Jump for easy demo review) */}
       <NavigationHeader
-        currentScreen={currentScreen}
-        setCurrentScreen={setCurrentScreen}
-        userRole={userRole}
-        setUserRole={setUserRole}
-      />
+  currentScreen={currentScreen}
+  setCurrentScreen={setCurrentScreen}
+  userRole={userRole}
+  setUserRole={setUserRole}
+  customer={customerProfile || undefined}
+/>
 
       {/* Screen Render Container (Full Website Size) */}
       <main className="flex-1 w-full">
@@ -75,19 +184,22 @@ export function App() {
         )}
 
         {currentScreen === 'login' && (
-          <LoginScreen
-            setCurrentScreen={setCurrentScreen}
-            userRole={userRole}
-            setUserRole={setUserRole}
-          />
-        )}
+  <LoginScreen
+    setCurrentScreen={setCurrentScreen}
+    userRole={userRole}
+    setUserRole={setUserRole}
+    onLoginSuccess={(customer) => setCustomerProfile(customer)}
+    initialCustomerName={customerProfile?.name}
+  />
+)}
 
         {currentScreen === 'register-customer' && (
-          <RegisterCustomerScreen
-            setCurrentScreen={setCurrentScreen}
-            setUserRole={setUserRole}
-          />
-        )}
+  <RegisterCustomerScreen
+    setCurrentScreen={setCurrentScreen}
+    setUserRole={setUserRole}
+    onRegisterSuccess={(customer) => setCustomerProfile(customer)}
+  />
+)}
 
         {currentScreen === 'register-worker' && (
           <RegisterWorkerScreen
@@ -107,26 +219,33 @@ export function App() {
         )}
 
         {currentScreen === 'schedule-service' && (
-          <ScheduleServiceScreen
-            selectedService={selectedService}
-            onConfirmSchedule={handleConfirmSchedule}
-            setCurrentScreen={setCurrentScreen}
-          />
-        )}
+  <ScheduleServiceScreen
+    selectedService={selectedService || services[0]}
+    onConfirmSchedule={handleConfirmSchedule}
+    setCurrentScreen={setCurrentScreen}
+    customer={customerProfile}
+  />
+)}
 
         {currentScreen === 'live-dispatch' && (
           <LiveDispatchScreen
             booking={activeBooking}
             setCurrentScreen={setCurrentScreen}
-            onOpenLiveTracking={() => setCurrentScreen('live-tracking')}
+            onOpenLiveTracking={() => {
+              handleUpdateBookingStatus('en-route', 3);
+              setCurrentScreen('live-tracking');
+            }}
             onOpenChat={handleOpenChat}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         )}
 
         {currentScreen === 'live-tracking' && (
           <LiveTrackingScreen
+            booking={activeBooking}
             setCurrentScreen={setCurrentScreen}
             onOpenChat={handleOpenChat}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         )}
 
@@ -150,7 +269,9 @@ export function App() {
             setCurrentScreen={setCurrentScreen}
             onOpenChat={handleOpenChat}
             onBookWorker={() => {
-              setSelectedService(INITIAL_SERVICES[0]);
+              if (services.length > 0) {
+                setSelectedService(services[0]);
+              }
               setCurrentScreen('schedule-service');
             }}
           />
@@ -165,11 +286,12 @@ export function App() {
         )}
 
         {currentScreen === 'customer-profile' && (
-          <CustomerProfileScreen
-            setCurrentScreen={setCurrentScreen}
-            setUserRole={setUserRole}
-          />
-        )}
+  <CustomerProfileScreen
+    setCurrentScreen={setCurrentScreen}
+    setUserRole={setUserRole}
+    customer={customerProfile}
+  />
+)}
 
         {currentScreen === 'chat' && (
           <ChatScreen

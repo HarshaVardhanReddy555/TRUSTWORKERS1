@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { ScreenId, UserRole } from '../types';
+import { CustomerProfile, ScreenId, UserRole } from '../types';
+import { saveCustomerToSupabase, getCustomerByIdentifier } from '../lib/supabaseService';
 
 interface LoginScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
+  onLoginSuccess?: (customer: CustomerProfile) => void;
+  initialCustomerName?: string;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   setCurrentScreen,
   userRole,
   setUserRole,
+  onLoginSuccess,
+  initialCustomerName,
 }) => {
   const [activeTab, setActiveTab] = useState<'customer' | 'worker'>(userRole);
+  const [customerName, setCustomerName] = useState(initialCustomerName || '');
   const [identifier, setIdentifier] = useState(
-    userRole === 'worker' ? 'ravi.electrician.undi@gmail.com' : 'ram@example.com'
+    userRole === 'worker' ? 'ravi.electrician.undi@gmail.com' : 'aditi.rao@example.com'
   );
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,22 +35,59 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     if (role === 'worker') {
       setIdentifier('ravi.electrician.undi@gmail.com');
     } else {
-      setIdentifier('ram@example.com');
+      setIdentifier('aditi.rao@example.com');
+      if (!customerName) setCustomerName('Aditi Rao');
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (activeTab === 'worker') {
-        setCurrentScreen('worker-home');
-      } else {
+    try {
+      if (activeTab === 'customer') {
+        const enteredName = customerName.trim();
+        const enteredId = identifier.trim();
+
+        // Check if customer already in Supabase
+        let resolvedCustomer = await getCustomerByIdentifier(enteredId);
+
+        if (!resolvedCustomer) {
+          const finalName = enteredName || (enteredId.includes('@') ? enteredId.split('@')[0] : enteredId) || 'Citizen Member';
+          const finalPhone = enteredId.includes('@') ? '+91 98765 43210' : enteredId;
+          const finalEmail = enteredId.includes('@') ? enteredId : undefined;
+
+          resolvedCustomer = await saveCustomerToSupabase({
+            name: finalName,
+            phone: finalPhone,
+            email: finalEmail,
+          });
+        } else if (enteredName && resolvedCustomer.name !== enteredName) {
+          resolvedCustomer = await saveCustomerToSupabase({
+            id: resolvedCustomer.id,
+            name: enteredName,
+            phone: resolvedCustomer.phone,
+            email: resolvedCustomer.email,
+          });
+        }
+
+        if (onLoginSuccess && resolvedCustomer) {
+          onLoginSuccess(resolvedCustomer);
+        }
         setCurrentScreen('customer-home');
+      } else {
+        setCurrentScreen('worker-home');
       }
-    }, 450);
+    } catch (err) {
+      console.warn('Login error:', err);
+      if (activeTab === 'customer') {
+        setCurrentScreen('customer-home');
+      } else {
+        setCurrentScreen('worker-home');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSendOtp = () => {
@@ -187,18 +230,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </div>
 
         {/* Quick Demo Pre-fill Pill Bar */}
-        <div className="bg-[#f4f4ef] border border-[#e3e3de] p-2 rounded-xl mb-4 flex items-center justify-between text-[11px]">
+        <div className="bg-[#f4f4ef] border border-[#e3e3de] p-2 rounded-xl mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
           <span className="text-[#707975] font-semibold flex items-center gap-1">
             <span className="material-symbols-outlined text-amber-600 text-sm">bolt</span>
             <span>Demo Quick Fill:</span>
           </span>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() => handleTabChange('customer')}
+              onClick={() => {
+                handleTabChange('customer');
+                setCustomerName('Aditi Rao');
+                setIdentifier('aditi.rao@example.com');
+              }}
               className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#00342b] font-medium hover:border-emerald-500"
             >
-              Ram (Customer)
+              Aditi Rao (Customer)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleTabChange('customer');
+                setCustomerName('Srikant Varma');
+                setIdentifier('+91 98480 12345');
+              }}
+              className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#00342b] font-medium hover:border-emerald-500"
+            >
+              Srikant V. (Customer)
             </button>
             <button
               type="button"
@@ -215,6 +273,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           onSubmit={handleLogin}
           className="bg-white rounded-2xl border border-[#e3e3de] p-4 sm:p-5 shadow-xs space-y-4 mb-4"
         >
+          {/* Customer Full Name (When customer tab is active) */}
+          {activeTab === 'customer' && (
+            <div>
+              <label className="block text-xs font-semibold text-[#1a1c19] mb-1">
+                Your Full Name
+              </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#707975] text-lg">
+                  badge
+                </span>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Enter your name (e.g. Priya Sharma)"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[#bfc9c4] text-xs font-medium text-[#1a1c19] focus:outline-none focus:border-[#00342b] focus:ring-1 focus:ring-[#00342b]"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Mobile or Email */}
           <div>
             <label className="block text-xs font-semibold text-[#1a1c19] mb-1">
@@ -233,7 +312,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 placeholder={
                   activeTab === 'worker'
                     ? 'ravi.electrician.undi@gmail.com or 9848023145'
-                    : 'ram@example.com or 9876543210'
+                    : 'your.email@example.com or 9876543210'
                 }
               />
             </div>

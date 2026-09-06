@@ -4,7 +4,7 @@ import { Booking, ScreenId } from '../types';
 interface PaymentConfirmScreenProps {
   booking: Booking | null;
   setCurrentScreen: (screen: ScreenId) => void;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (method: string, rating?: number, feedback?: string) => void;
 }
 
 export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
@@ -17,19 +17,30 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
   const [isPaid, setIsPaid] = useState(false);
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('Excellent work, on time and no hidden charges!');
+  const [receiptDownloaded, setReceiptDownloaded] = useState(false);
 
-  const totalAmount = booking?.totalAmount ? booking.totalAmount + 120 : 620;
+  const totalAmount = booking?.totalAmount ?? 0;
+
+  const getFormattedMethod = (method: 'upi' | 'qr' | 'cash'): string => {
+    if (method === 'cash') return 'Cash';
+    if (method === 'qr') return 'Co-op QR';
+    return 'UPI';
+  };
 
   const handlePay = () => {
     setIsProcessing(true);
+    const methodStr = getFormattedMethod(paymentMethod);
     setTimeout(() => {
       setIsProcessing(false);
       setIsPaid(true);
+      // Immediately persist selected payment method and paid status
+      onPaymentSuccess(methodStr, rating, feedback);
     }, 1000);
   };
 
   const handleFinish = () => {
-    onPaymentSuccess();
+    const methodStr = getFormattedMethod(paymentMethod);
+    onPaymentSuccess(methodStr, rating, feedback);
     setCurrentScreen('customer-home');
   };
 
@@ -94,38 +105,27 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
               </div>
 
               <div className="space-y-3 text-xs">
-                <div className="flex justify-between text-[#3f4945] py-1 border-b border-slate-50">
-                  <div>
-                    <span className="font-bold text-[#1a1c19] block">Ravi Kumar (Lead Electrician/Plumber)</span>
-                    <span className="text-[11px] text-slate-400">2 Hours @ Statutory ₹250/hr</span>
-                  </div>
-                  <span className="font-bold text-sm text-[#1a1c19]">₹500</span>
-                </div>
+  <div className="flex justify-between text-[#3f4945] py-1 border-b border-slate-50">
+    <div>
+      <span className="font-bold text-[#1a1c19] block">
+        {booking?.assignedWorkers?.[0]?.name || 'Assigned Technician'}
+        {booking && booking.workerCount > 1 ? ` + ${booking.workerCount - 1} more` : ''}
+      </span>
+      <span className="text-[11px] text-slate-400">
+        {booking?.durationHours || 0} Hours @ ₹{booking?.ratePerHour || 0}/hr
+      </span>
+    </div>
+    <span className="font-bold text-sm text-[#1a1c19]">₹{totalAmount}</span>
+  </div>
 
-                <div className="flex justify-between text-[#3f4945] py-1 border-b border-slate-50">
-                  <div>
-                    <span className="font-bold text-[#1a1c19] block">Hardware Spare Parts</span>
-                    <span className="text-[11px] text-slate-400">Brass washer & seal joint (Receipt attached)</span>
-                  </div>
-                  <span className="font-bold text-sm text-[#1a1c19]">₹120</span>
-                </div>
-
-                <div className="flex justify-between text-emerald-700 py-1 border-b border-slate-50">
-                  <div>
-                    <span className="font-bold block">Community Cooperative Rebate</span>
-                    <span className="text-[11px] opacity-80">Mandal member welfare discount</span>
-                  </div>
-                  <span className="font-bold text-sm">-₹20</span>
-                </div>
-
-                <div className="flex justify-between text-[#835500] font-medium py-1">
-                  <div>
-                    <span className="font-bold block">Platform Aggregator Commission</span>
-                    <span className="text-[11px] text-slate-400">Traditional apps take 25%-35%</span>
-                  </div>
-                  <span className="font-bold text-sm text-emerald-700">₹0 (0% Free)</span>
-                </div>
-              </div>
+  <div className="flex justify-between text-[#835500] font-medium py-1">
+    <div>
+      <span className="font-bold block">Platform Aggregator Commission</span>
+      <span className="text-[11px] text-slate-400">Traditional apps take 25%-35%</span>
+    </div>
+    <span className="font-bold text-sm text-emerald-700">₹0 (0% Free)</span>
+  </div>
+</div>
 
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                 <div>
@@ -333,11 +333,13 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={() => alert('Cooperative receipt downloaded: INV-CWS-8495.pdf')}
+                    onClick={() => setReceiptDownloaded(true)}
                     className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-[#00342b] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <span className="material-symbols-outlined text-base">download</span>
-                    <span>Download Official Receipt</span>
+                    <span className="material-symbols-outlined text-base">
+                      {receiptDownloaded ? 'check_circle' : 'download'}
+                    </span>
+                    <span>{receiptDownloaded ? 'Receipt Saved (PDF)' : 'Download Official Receipt'}</span>
                   </button>
                   <button
                     onClick={handleFinish}

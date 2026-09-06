@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import { ScreenId, TeamMember, AvailabilityStatus } from '../types';
-import { WORKER_RAVI, COOPERATIVE_TEAM_RAVI, INITIAL_TEAM_MEMBERS } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { ScreenId, TeamMember, AvailabilityStatus, WorkerProfile, TeamProfile } from '../types';
+import {
+  getWorkers,
+  getTeamProfile,
+  getTeamMembers,
+  updateMemberAvailability,
+} from '../lib/supabaseService';
 
 interface WorkerHomeScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
@@ -17,11 +22,45 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
   const [jobAccepted, setJobAccepted] = useState(false);
   const [startOtpInput, setStartOtpInput] = useState('');
   const [jobStarted, setJobStarted] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
 
+  const [currentWorker, setCurrentWorker] = useState<WorkerProfile | null>(null);
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadWorkerData() {
+      try {
+        const [workersData, teamData, membersData] = await Promise.all([
+          getWorkers(),
+          getTeamProfile(),
+          getTeamMembers(),
+        ]);
+        if (isMounted) {
+          if (workersData.length > 0) {
+            // Pick team lead worker or first worker
+            const lead = workersData.find((w) => w.isTeamLead) || workersData[0];
+            setCurrentWorker(lead);
+          }
+          setTeamProfile(teamData);
+          setTeamMembers(membersData);
+        }
+      } catch (err) {
+        console.warn('Error fetching worker home data from Supabase:', err);
+      }
+    }
+    loadWorkerData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const leadWorker = currentWorker || teamProfile?.teamLead;
   const availableCount = teamMembers.filter((m) => m.availability === 'Available').length;
 
-  const handleToggleMemberAvailability = (memberId: string) => {
+  const handleToggleMemberAvailability = async (memberId: string) => {
+    let targetNextStatus: AvailabilityStatus = 'Available';
+
     setTeamMembers((prev) =>
       prev.map((m) => {
         if (m.id === memberId) {
@@ -31,11 +70,19 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
               : m.availability === 'On Job'
               ? 'Off Duty'
               : 'Available';
+          targetNextStatus = nextStatus;
           return { ...m, availability: nextStatus };
         }
         return m;
       })
     );
+
+    // Asynchronously mutate in Supabase
+    try {
+      await updateMemberAvailability(memberId, targetNextStatus);
+    } catch (err) {
+      console.warn('Error updating worker member availability:', err);
+    }
   };
 
   const handleAcceptBroadcast = () => {
@@ -101,13 +148,13 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
         <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <img
-              src={WORKER_RAVI.avatarUrl}
-              alt={WORKER_RAVI.name}
+              src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+              alt={leadWorker?.name || 'Ravi Kumar'}
               className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-600 shadow-2xs"
             />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-bold text-lg text-[#1a1c19]">{WORKER_RAVI.name}</h1>
+                <h1 className="font-bold text-lg text-[#1a1c19]">{leadWorker?.name || 'Ravi Kumar'}</h1>
                 <span className="material-symbols-outlined text-emerald-600 text-lg">verified</span>
                 <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
                   Lead Certified Partner
@@ -115,7 +162,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
               </div>
               <p className="text-xs text-[#707975] flex items-center gap-1 mt-0.5">
                 <span className="material-symbols-outlined text-sm text-[#835500]">location_on</span>
-                <span>Undi Mandal Cooperative Cluster • West Godavari</span>
+                <span>{leadWorker?.cluster || 'Undi Mandal Cooperative Cluster'} • West Godavari</span>
               </p>
             </div>
           </div>
@@ -148,7 +195,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
         </div>
 
         {/* Dashboard View Toggle: My Profile vs My Team (Only visible if worker is Team Lead) */}
-        {WORKER_RAVI.isTeamLead && (
+        {(leadWorker?.isTeamLead ?? true) && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
             <div className="flex items-center gap-2 bg-[#eeeee9] p-1.5 rounded-2xl text-xs w-full sm:w-auto">
               <button
@@ -188,7 +235,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 <span className="text-xs text-[#707975]">Co-op Team Guild:</span>
                 <span className="text-xs font-bold text-[#00342b] bg-white border border-[#e3e3de] px-3 py-1.5 rounded-xl shadow-2xs">
-                  {COOPERATIVE_TEAM_RAVI.teamName}
+                  {teamProfile?.teamName || 'Undi Multi-Trade Guild Crew A'}
                 </span>
               </div>
             )}
@@ -488,10 +535,10 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
                   <span>Team Rating</span>
                 </div>
                 <div className="text-2xl font-black text-[#835500]">
-                  ★ {COOPERATIVE_TEAM_RAVI.rating}
+                  ★ {teamProfile?.rating || 4.94}
                 </div>
                 <span className="text-xs text-[#835500] font-semibold block">
-                  Across 520 collective jobs
+                  Across {teamProfile?.reviewsCount || 520} collective jobs
                 </span>
               </div>
 
@@ -500,7 +547,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
                   <span className="material-symbols-outlined text-blue-700 text-base">account_balance</span>
                   <span>Co-op Team Base Rate</span>
                 </div>
-                <div className="text-2xl font-black text-blue-950">₹{COOPERATIVE_TEAM_RAVI.hourlyRate}/hr</div>
+                <div className="text-2xl font-black text-blue-950">₹{teamProfile?.hourlyRate || 475}/hr</div>
                 <span className="text-xs text-blue-700 font-semibold block">
                   100% Settled directly to crew members
                 </span>
@@ -512,17 +559,17 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
                   <h2 className="text-xl font-bold font-display text-[#1a1c19]">
-                    {COOPERATIVE_TEAM_RAVI.teamName}
+                    {teamProfile?.teamName || 'Undi Multi-Trade Guild Crew A'}
                   </h2>
                   <p className="text-xs text-[#707975] mt-0.5">
-                    Lead: <strong>{WORKER_RAVI.name}</strong> • Undi Multi-Trade Guild Roster • Click any status pill to cycle availability
+                    Lead: <strong>{leadWorker?.name || 'Ravi Kumar'}</strong> • Undi Multi-Trade Guild Roster • Click any status pill to cycle availability
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => alert('Notification broadcast sent to all 5 team members to review their duty status.')}
+                    onClick={() => alert(`Notification broadcast sent to all ${teamMembers.length} team members to review their duty status.`)}
                     className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
                   >
                     <span className="material-symbols-outlined text-base">notifications</span>
@@ -542,7 +589,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
               {/* Members as Rows */}
               <div className="divide-y divide-slate-100">
                 {teamMembers.map((member) => {
-                  const isLead = member.name === WORKER_RAVI.name;
+                  const isLead = member.name === (leadWorker?.name || 'Ravi Kumar');
                   return (
                     <div
                       key={member.id}

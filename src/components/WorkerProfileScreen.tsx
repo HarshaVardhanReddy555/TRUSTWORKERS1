@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ScreenId } from '../types';
-import { WORKER_RAVI } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { ScreenId, WorkerProfile } from '../types';
+import { getWorkers } from '../lib/supabaseService';
 
 interface WorkerProfileScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
@@ -14,6 +14,28 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
   onBookWorker,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'reviews' | 'coop'>('overview');
+  const [worker, setWorker] = useState<WorkerProfile | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadWorker() {
+      try {
+        const workers = await getWorkers();
+        if (isMounted && workers.length > 0) {
+          const lead = workers.find((w) => w.isTeamLead) || workers[0];
+          setWorker(lead);
+        }
+      } catch (err) {
+        console.warn('Error loading worker profile from Supabase:', err);
+      }
+    }
+    loadWorker();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const currentWorker = worker;
 
   return (
     <div className="min-h-screen bg-[#fafaf5] text-[#1a1c19] py-6 px-4 sm:px-6 lg:px-8 pb-20">
@@ -49,8 +71,8 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
 
               <div className="relative inline-block mx-auto mt-2">
                 <img
-                  src={WORKER_RAVI.avatarUrl}
-                  alt={WORKER_RAVI.name}
+                  src={currentWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                  alt={currentWorker?.name || 'Ravi Kumar'}
                   className="w-24 h-24 rounded-3xl object-cover border-2 border-emerald-600 shadow-sm mx-auto"
                 />
                 <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-lg p-1 rounded-full shadow">
@@ -60,32 +82,32 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
 
               <div>
                 <h1 className="text-xl font-bold font-display text-[#1a1c19]">
-                  {WORKER_RAVI.name}
+                  {currentWorker?.name || 'Ravi Kumar'}
                 </h1>
-                <p className="text-xs text-[#707975] mt-0.5">{WORKER_RAVI.title}</p>
+                <p className="text-xs text-[#707975] mt-0.5">{currentWorker?.title || 'Master Electrician & Wireman'}</p>
               </div>
 
               <div className="flex items-center justify-center gap-2 text-xs font-semibold text-[#835500]">
                 <div className="flex items-center gap-1 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200">
                   <span className="material-symbols-outlined text-base">star</span>
-                  <span className="font-bold">{WORKER_RAVI.rating}</span>
-                  <span className="text-slate-400 font-normal">({WORKER_RAVI.reviewsCount})</span>
+                  <span className="font-bold">{currentWorker?.rating || 4.96}</span>
+                  <span className="text-slate-400 font-normal">({currentWorker?.reviewsCount || 412})</span>
                 </div>
                 <span className="text-slate-300">•</span>
-                <span className="text-slate-600">{WORKER_RAVI.experienceYears} Years Experience</span>
+                <span className="text-slate-600">{currentWorker?.experienceYears || 12} Years Experience</span>
                 <span className="text-slate-300">•</span>
-                <span className="text-emerald-700 font-bold">{WORKER_RAVI.jobsCompleted} Completed</span>
+                <span className="text-emerald-700 font-bold">{currentWorker?.jobsCompleted || 580} Completed</span>
               </div>
 
               <div className="text-xs text-[#707975] flex items-center justify-center gap-1">
                 <span className="material-symbols-outlined text-base text-[#835500]">location_on</span>
-                <span>{WORKER_RAVI.cluster || WORKER_RAVI.mandal} (15 km operating radius)</span>
+                <span>{currentWorker?.cluster || currentWorker?.mandal || 'Undi Mandal Cooperative Cluster'} (15 km operating radius)</span>
               </div>
 
               {/* Action Buttons */}
               <div className="pt-2 grid grid-cols-3 gap-2">
                 <button
-                  onClick={() => alert(`Dialing Ravi Kumar: ${WORKER_RAVI.phone}`)}
+                  onClick={() => alert(`Dialing ${currentWorker?.name || 'Ravi Kumar'}: ${currentWorker?.phone || '+91 98480 12345'}`)}
                   className="py-3 rounded-xl border border-emerald-600/40 bg-emerald-50 text-emerald-900 font-bold text-xs flex flex-col items-center gap-1 hover:bg-emerald-100 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">call</span>
@@ -93,7 +115,7 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
                 </button>
 
                 <button
-                  onClick={() => onOpenChat(WORKER_RAVI.name)}
+                  onClick={() => onOpenChat(currentWorker?.name || 'Ravi Kumar')}
                   className="py-3 rounded-xl border border-slate-200 bg-white text-[#1a1c19] font-bold text-xs flex flex-col items-center gap-1 hover:bg-slate-50 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">chat</span>

@@ -1,19 +1,63 @@
-import React, { useState } from 'react';
-import { Booking, ScreenId, ServiceItem } from '../types';
-import { WORKER_RAVI, WORKER_SURESH, INITIAL_SERVICES } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { Booking, CustomerProfile, ScreenId, ServiceItem, WorkerProfile } from '../types';
+import { getServices, getWorkers, generateUUID } from '../lib/supabaseService';
 
 interface ScheduleServiceScreenProps {
-  selectedService: ServiceItem;
+  selectedService?: ServiceItem | null;
   onConfirmSchedule: (booking: Booking) => void;
   setCurrentScreen: (screen: ScreenId) => void;
+  customer?: CustomerProfile;
 }
 
 export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
   selectedService,
   onConfirmSchedule,
   setCurrentScreen,
+  customer,
 }) => {
-  const [currentService, setCurrentService] = useState<ServiceItem>(selectedService);
+  const [availableServices, setAvailableServices] = useState<ServiceItem[]>([]);
+  const [availableWorkers, setAvailableWorkers] = useState<WorkerProfile[]>([]);
+  const [currentService, setCurrentService] = useState<ServiceItem>(
+    selectedService || {
+      id: '40000000-0000-0000-0000-000000000001',
+      name: 'Electrician',
+      category: 'Electrical',
+      baseRatePerHour: 200,
+      rating: 4.89,
+      jobsCount: 340,
+      badge: 'Verified',
+      description: 'Wiring, repairs, MCB, switchboard installations',
+      iconName: 'bolt',
+      popular: true,
+    }
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      const [servicesData, workersData] = await Promise.all([getServices(), getWorkers()]);
+      if (isMounted) {
+        setAvailableServices(servicesData);
+        setAvailableWorkers(workersData);
+        if (selectedService) {
+          const dbMatch = servicesData.find(
+            (s) =>
+              s.id.toLowerCase() === selectedService.id.toLowerCase() ||
+              s.name.toLowerCase() === selectedService.name.toLowerCase() ||
+              s.category.toLowerCase() === selectedService.category.toLowerCase()
+          );
+          setCurrentService(dbMatch || selectedService);
+        } else if (servicesData.length > 0) {
+          setCurrentService(servicesData[0]);
+        }
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedService]);
+
   const [workerCount, setWorkerCount] = useState<number>(1);
   const [selectedDate, setSelectedDate] = useState<string>('05 Sep');
   const [selectedWindow, setSelectedWindow] = useState<'Morning' | 'Afternoon' | 'Evening'>('Afternoon');
@@ -26,13 +70,13 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
   const [landmark, setLandmark] = useState('Near Undi Panchayati Library, Gate 2');
 
   const baseRate = currentService.baseRatePerHour;
-  // Multi-worker rate with co-op discount for 2 workers, standard per-worker rate for 3+
-  const hourlyRateCalc =
-    workerCount === 1
-      ? baseRate
-      : workerCount === 2
-      ? Math.round(baseRate * 1.9)
-      : baseRate * workerCount;
+  // Multi-worker rate calculation with worker_count multiplier for team bookings
+  const getWorkerMultiplier = (count: number) => {
+  if (count <= 1) return 1;
+  if (count === 2) return 1.9;
+  return count;
+};
+const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
   const estimatedTotal = hourlyRateCalc * durationHours;
 
   const quickTags = [
@@ -44,14 +88,23 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
 
   const handleCreateBooking = () => {
     const isTeam = workerCount > 1;
+    const assigned =
+      availableWorkers.length > 0
+        ? isTeam
+          ? availableWorkers.slice(0, Math.min(workerCount, availableWorkers.length))
+          : [availableWorkers[0]]
+        : [];
+
     const newBooking: Booking = {
-      id: 'CWS-8495',
-      serviceId: currentService.id,
+      id: generateUUID(),
+      serviceId: currentService?.id || '',
       serviceName: isTeam
         ? `${workerCount >= 3 ? 'Multi-Trade Crew' : 'Dual Team'}: ${currentService.name} & Trade Support`
         : currentService.name,
       category: currentService.category,
       status: 'searching',
+      stepCurrent: 1,
+      paymentStatus: 'pending',
       dateStr: selectedDate === '05 Sep' ? 'Today, 05 Sep' : selectedDate,
       timeWindow:
         selectedWindow === 'Morning'
@@ -61,9 +114,9 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
           : '4:00 PM - 8:00 PM',
       workerCount,
       durationHours,
-      assignedWorkers: isTeam ? [WORKER_RAVI, WORKER_SURESH] : [WORKER_RAVI],
-      customerName: 'Ram',
-      customerPhone: '+91 98765 43210',
+      assignedWorkers: assigned,
+      customerName: customer?.name?.trim() || 'Citizen Member',
+      customerPhone: customer?.phone?.trim() || '+91 98765 43210',
       address:
         locationType === 'home'
           ? '42 Cooperative Way, Block B, Flat 302, Green Park, Undi, 534199'
@@ -72,7 +125,6 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
       problemDescription,
       ratePerHour: baseRate,
       totalAmount: estimatedTotal,
-      stepCurrent: 1,
       arrivingMinutes: 15,
     };
 
@@ -128,7 +180,7 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-                {INITIAL_SERVICES.map((svc) => (
+                {(availableServices.length > 0 ? availableServices : [currentService]).map((svc) => (
                   <button
                     key={svc.id}
                     type="button"

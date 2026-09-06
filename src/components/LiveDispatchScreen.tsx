@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Booking, ScreenId } from '../types';
-import { WORKER_RAVI, WORKER_SURESH, COOPERATIVE_TEAM_RAVI } from '../mockData';
+import { Booking, ScreenId, TeamProfile, WorkerProfile } from '../types';
+import { getTeamProfile, getWorkers } from '../lib/supabaseService';
 
 interface LiveDispatchScreenProps {
   booking: Booking;
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenLiveTracking: () => void;
   onOpenChat: (workerName: string) => void;
+  onUpdateBookingStatus?: (
+    status: 'searching' | 'assigned' | 'en-route' | 'in-progress' | 'completed' | 'cancelled',
+    stepCurrent?: number
+  ) => void;
 }
 
 export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
@@ -14,16 +18,57 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
   setCurrentScreen,
   onOpenLiveTracking,
   onOpenChat,
+  onUpdateBookingStatus,
 }) => {
   const isTeam = (booking?.workerCount || 1) > 1;
-  const [partner2Assigned, setPartner2Assigned] = useState<boolean>(true);
-  const [countdown, setCountdown] = useState<number>(38);
+  const [partner2Assigned, setPartner2Assigned] = useState<boolean>(booking?.status !== 'searching');
+  const [countdown, setCountdown] = useState<number>(12);
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
+  const [workersList, setWorkersList] = useState<WorkerProfile[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [teamData, workersData] = await Promise.all([
+          getTeamProfile(),
+          getWorkers(),
+        ]);
+        if (isMounted) {
+          setTeamProfile(teamData);
+          setWorkersList(workersData);
+        }
+      } catch (err) {
+        console.warn('Error loading dispatch data from Supabase:', err);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const leadWorker =
+    booking?.assignedWorkers?.[0] ||
+    teamProfile?.teamLead ||
+    workersList[0];
+
+  const secondWorker =
+    booking?.assignedWorkers?.[1] ||
+    workersList[1] ||
+    leadWorker;
+
+  useEffect(() => {
+    if (booking?.status !== 'searching') {
+      setPartner2Assigned(true);
+      return;
+    }
+
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           setPartner2Assigned(true);
+          onUpdateBookingStatus?.('assigned', 2);
           clearInterval(timer);
           return 0;
         }
@@ -32,7 +77,7 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [booking?.status, onUpdateBookingStatus]);
 
   return (
     <div className="min-h-screen bg-[#fafaf5] text-[#1a1c19] py-6 px-4 sm:px-6 lg:px-8 pb-20">
@@ -116,12 +161,12 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                 <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <span className="text-xs font-bold uppercase tracking-wider bg-[#00342b] text-white px-3 py-1 rounded-full">
-                      Matched Team: {COOPERATIVE_TEAM_RAVI.teamName}
+                      Matched Team: {teamProfile?.teamName || 'Undi Multi-Trade Guild Crew A'}
                     </span>
                     {/* Small counter: "3/5 members available" */}
                     <span className="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                      <span>3/5 members available</span>
+                      <span>{teamProfile?.availableMembers || 3}/{teamProfile?.totalMembers || 5} members available</span>
                     </span>
                   </div>
 
@@ -129,8 +174,8 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                     <div className="flex items-center gap-4">
                       <div className="relative">
                         <img
-                          src={COOPERATIVE_TEAM_RAVI.teamLead.avatarUrl}
-                          alt={COOPERATIVE_TEAM_RAVI.teamLead.name}
+                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                          alt={leadWorker?.name || 'Ravi Kumar'}
                           className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
                         />
                         <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
@@ -141,22 +186,22 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                       <div>
                         <div className="flex items-center gap-1.5">
                           <h2 className="font-bold text-base text-[#1a1c19]">
-                            {COOPERATIVE_TEAM_RAVI.teamLead.name}
+                            {leadWorker?.name || 'Ravi Kumar'}
                           </h2>
                           <span className="text-[10px] font-extrabold uppercase bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
                             Team Lead
                           </span>
                         </div>
                         <p className="text-xs text-[#707975]">
-                          {COOPERATIVE_TEAM_RAVI.trade} • Undi Mandal
+                          {teamProfile?.trade || 'Electrical & General Repairs'} • Undi Mandal
                         </p>
                         <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
                           <span className="flex items-center gap-0.5 text-[#835500]">
                             <span className="material-symbols-outlined text-sm">star</span>
-                            <span>{COOPERATIVE_TEAM_RAVI.rating} ({COOPERATIVE_TEAM_RAVI.reviewsCount} reviews)</span>
+                            <span>{teamProfile?.rating || 4.94} ({teamProfile?.reviewsCount || 520} reviews)</span>
                           </span>
                           <span>•</span>
-                          <span>{COOPERATIVE_TEAM_RAVI.totalMembers} Members in Guild</span>
+                          <span>{teamProfile?.totalMembers || 5} Members in Guild</span>
                           <span>•</span>
                           <span className="text-emerald-700 font-bold">Standard Co-op Collective Fare</span>
                         </div>
@@ -165,14 +210,14 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                     <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
                       <button
-                        onClick={() => alert(`Calling Team Lead Ravi Kumar (${COOPERATIVE_TEAM_RAVI.teamLead.phone})...`)}
+                        onClick={() => alert(`Calling Team Lead ${leadWorker?.name || 'Ravi Kumar'} (${leadWorker?.phone || '+91 98480 12345'})...`)}
                         className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
                       >
                         <span className="material-symbols-outlined text-base">call</span>
                         <span>Call Team Lead</span>
                       </button>
                       <button
-                        onClick={() => onOpenChat(COOPERATIVE_TEAM_RAVI.teamLead.name)}
+                        onClick={() => onOpenChat(leadWorker?.name || 'Ravi Kumar')}
                         className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
                       >
                         <span className="material-symbols-outlined text-base">chat</span>
@@ -196,13 +241,13 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
                         <img
-                          src={COOPERATIVE_TEAM_RAVI.teamLead.avatarUrl}
-                          alt={COOPERATIVE_TEAM_RAVI.teamLead.name}
+                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                          alt={leadWorker?.name || 'Ravi Kumar'}
                           className="w-9 h-9 rounded-xl object-cover border border-emerald-600"
                         />
                         <div className="overflow-hidden min-w-0">
                           <span className="text-xs font-bold text-[#1a1c19] block truncate">
-                            {COOPERATIVE_TEAM_RAVI.teamLead.name} (Lead)
+                            {leadWorker?.name || 'Ravi Kumar'} (Lead)
                           </span>
                           <span className="text-[10px] text-emerald-700 block truncate">
                             Master Electrician & Supervisor
@@ -212,13 +257,13 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                       <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
                         <img
-                          src={WORKER_SURESH.avatarUrl}
-                          alt={WORKER_SURESH.name}
+                          src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
+                          alt={secondWorker?.name || 'Suresh Varma'}
                           className="w-9 h-9 rounded-xl object-cover border border-slate-300"
                         />
                         <div className="overflow-hidden min-w-0">
                           <span className="text-xs font-bold text-[#1a1c19] block truncate">
-                            {WORKER_SURESH.name}
+                            {secondWorker?.name || 'Suresh Varma'}
                           </span>
                           <span className="text-[10px] text-[#707975] block truncate">
                             Senior Wireman • 6 Yrs Exp
@@ -298,13 +343,13 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <img
-                        src={WORKER_SURESH.avatarUrl}
-                        alt={WORKER_SURESH.name}
+                        src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
+                        alt={secondWorker?.name || 'Suresh Varma'}
                         className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200"
                       />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_SURESH.name}</h2>
+                          <h2 className="font-bold text-base text-[#1a1c19]">{secondWorker?.name || 'Suresh Varma'}</h2>
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                             Standby Lead
                           </span>
@@ -313,7 +358,7 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                         <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold">
                           <span className="flex items-center gap-0.5 text-[#835500]">
                             <span className="material-symbols-outlined text-sm">star</span>
-                            <span>4.88 (380 reviews)</span>
+                            <span>{secondWorker?.rating || 4.88} ({secondWorker?.reviewsCount || 380} reviews)</span>
                           </span>
                           <span>•</span>
                           <span>4.2 km away • Reserve Unit</span>
@@ -330,7 +375,7 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
             ) : (
               /* ================= INDIVIDUAL WORKER CARDS (when workerCount === 1) ================= */
               <>
-                {/* Partner 1 Card (Ravi Kumar) */}
+                {/* Partner 1 Card */}
                 <div className="bg-white rounded-3xl border-2 border-emerald-600/40 p-6 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <span className="text-xs font-bold uppercase tracking-wider bg-[#00342b] text-white px-3 py-1 rounded-full">
@@ -343,8 +388,8 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                     <div className="flex items-center gap-4">
                       <div className="relative">
                         <img
-                          src={WORKER_RAVI.avatarUrl}
-                          alt={WORKER_RAVI.name}
+                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
+                          alt={leadWorker?.name || 'Ravi Kumar'}
                           className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
                         />
                         <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
@@ -354,33 +399,33 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <h2 className="font-bold text-base text-[#1a1c19]">{WORKER_RAVI.name}</h2>
+                          <h2 className="font-bold text-base text-[#1a1c19]">{leadWorker?.name || 'Ravi Kumar'}</h2>
                           <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
                         </div>
-                        <p className="text-xs text-[#707975]">{WORKER_RAVI.title} • Undi Mandal</p>
+                        <p className="text-xs text-[#707975]">{leadWorker?.title || 'Master Electrician & Wireman'} • Undi Mandal</p>
                         <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
                           <span className="flex items-center gap-0.5 text-[#835500]">
                             <span className="material-symbols-outlined text-sm">star</span>
-                            <span>{WORKER_RAVI.rating} ({WORKER_RAVI.reviewsCount} reviews)</span>
+                            <span>{leadWorker?.rating || 4.96} ({leadWorker?.reviewsCount || 412} reviews)</span>
                           </span>
                           <span>•</span>
-                          <span>{WORKER_RAVI.experienceYears} Yrs Exp</span>
+                          <span>{leadWorker?.experienceYears || 12} Yrs Exp</span>
                           <span>•</span>
-                          <span>{WORKER_RAVI.jobsCompleted} Jobs</span>
+                          <span>{leadWorker?.jobsCompleted || 580} Jobs</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
                       <button
-                        onClick={() => alert(`Calling Ravi Kumar (${WORKER_RAVI.phone})...`)}
+                        onClick={() => alert(`Calling ${leadWorker?.name || 'Ravi Kumar'} (${leadWorker?.phone || '+91 98480 12345'})...`)}
                         className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-emerald-600/40 bg-[#afefdd]/30 text-[#004d40] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
                       >
                         <span className="material-symbols-outlined text-base">call</span>
                         <span>Call Worker</span>
                       </button>
                       <button
-                        onClick={() => onOpenChat(WORKER_RAVI.name)}
+                        onClick={() => onOpenChat(leadWorker?.name || 'Ravi Kumar')}
                         className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 bg-white text-[#1a1c19] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
                       >
                         <span className="material-symbols-outlined text-base">chat</span>
@@ -492,19 +537,19 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
               {/* Action Button */}
               <div className="pt-2 space-y-2">
                 <button
-                  onClick={() => setCurrentScreen('payment-confirm')}
+                  onClick={onOpenLiveTracking}
                   className="w-full py-3.5 bg-[#00342b] hover:bg-[#004d40] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
                 >
-                  <span>Review Booking & Settlement</span>
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  <span className="material-symbols-outlined text-base">navigation</span>
+                  <span>{partner2Assigned ? 'Track Technicians En Route' : 'Confirm Dispatch & Track Live'}</span>
                 </button>
 
                 <button
-                  onClick={onOpenLiveTracking}
-                  className="w-full py-3 bg-[#ffaa14] hover:bg-[#ffb955] text-[#2a1800] rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                  onClick={() => setCurrentScreen('payment-confirm')}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <span className="material-symbols-outlined text-base">map</span>
-                  <span>Open Full Screen GPS Tracking</span>
+                  <span className="material-symbols-outlined text-sm">receipt_long</span>
+                  <span>Review Booking & Wage Breakdown</span>
                 </button>
 
                 <button

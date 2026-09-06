@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { ScreenId, UserRole } from '../types';
+import { CustomerProfile, ScreenId, UserRole } from '../types';
+import { saveCustomerToSupabase } from '../lib/supabaseService';
 
 interface RegisterCustomerScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   setUserRole: (role: UserRole) => void;
+  onRegisterSuccess?: (customer: CustomerProfile) => void;
 }
 
 export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
   setCurrentScreen,
   setUserRole,
+  onRegisterSuccess,
 }) => {
-  const [fullName, setFullName] = useState('Ram');
-  const [mobile, setMobile] = useState('+91 9876543210');
-  const [email, setEmail] = useState('ram@example.com');
-  const [password, setPassword] = useState('securepass123');
+  const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [houseAddress, setHouseAddress] = useState('House No. 42, Block B, Green Park');
+  const [houseAddress, setHouseAddress] = useState('');
   const [villageTown, setVillageTown] = useState('Undi');
   const [pincode, setPincode] = useState('534199');
   const [district, setDistrict] = useState('West Godavari');
@@ -23,18 +26,31 @@ export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
   const [agreed, setAgreed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreed) {
       alert('Please agree to the Terms of Service and Privacy Policy.');
       return;
     }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const saved = await saveCustomerToSupabase({
+        name: fullName.trim() || 'Citizen Member',
+        phone: mobile.trim() || '+91 98765 43210',
+        email: email.trim() || undefined,
+      });
+      if (onRegisterSuccess) {
+        onRegisterSuccess(saved);
+      }
       setUserRole('customer');
       setCurrentScreen('customer-home');
-    }, 500);
+    } catch (err) {
+      console.warn('Registration error:', err);
+      setUserRole('customer');
+      setCurrentScreen('customer-home');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
