@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, ScreenId, TeamProfile, WorkerProfile } from '../types';
 import { getTeamProfile, getWorkers } from '../lib/supabaseService';
+import { UserAvatar } from './UserAvatar';
 
 interface LiveTrackingScreenProps {
   booking: Booking | null;
@@ -184,10 +185,11 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
             <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                    alt={leadWorker?.name || 'Ravi Kumar'}
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
+                  <UserAvatar
+                    avatarUrl={leadWorker?.avatarUrl}
+                    name={leadWorker?.name || 'Ravi Kumar'}
+                    size="lg"
+                    className="border-2 border-emerald-600/40"
                   />
                   <div>
                     <h2 className="font-bold text-base text-[#1a1c19]">{leadWorker?.name || 'Ravi Kumar'}</h2>
@@ -313,23 +315,23 @@ export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
                     {/* Stacked avatars for assigned members */}
                     <div className="flex items-center gap-2 pt-1 pb-1">
                       <div className="flex items-center -space-x-2 overflow-hidden">
-                        <img
-                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                          alt={leadWorker?.name || 'Ravi Kumar'}
-                          className="inline-block h-7 w-7 rounded-full ring-2 ring-emerald-600 object-cover shadow-xs"
-                          title={`${leadWorker?.name || 'Ravi Kumar'} (Team Lead)`}
+                        <UserAvatar
+                          avatarUrl={leadWorker?.avatarUrl}
+                          name={leadWorker?.name || 'Ravi Kumar'}
+                          size="sm"
+                          className="ring-2 ring-emerald-600"
                         />
-                        <img
-                          src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
-                          alt={secondWorker?.name || 'Suresh Varma'}
-                          className="inline-block h-7 w-7 rounded-full ring-2 ring-white object-cover shadow-xs"
-                          title={secondWorker?.name || 'Suresh Varma'}
+                        <UserAvatar
+                          avatarUrl={secondWorker?.avatarUrl}
+                          name={secondWorker?.name || 'Suresh Varma'}
+                          size="sm"
+                          className="ring-2 ring-white"
                         />
-                        <img
-                          src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
-                          alt="Mohan Rao"
-                          className="inline-block h-7 w-7 rounded-full ring-2 ring-white object-cover shadow-xs"
-                          title="Mohan Rao"
+                        <UserAvatar
+                          avatarUrl=""
+                          name="Mohan Rao"
+                          size="sm"
+                          className="ring-2 ring-white"
                         />
                       </div>
                       <span className="text-[11px] text-emerald-800 font-semibold">

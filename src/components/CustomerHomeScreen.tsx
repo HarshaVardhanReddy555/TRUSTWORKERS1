@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { Booking, ScreenId, ServiceItem } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Booking, ScreenId, ServiceItem, WorkerProfile } from '../types';
+import { getWorkers } from '../lib/supabaseService';
+import { TrustScoreBadge } from './TrustScoreBadge';
+import { UserAvatar } from './UserAvatar';
 
 interface CustomerHomeScreenProps {
   services: ServiceItem[];
@@ -20,6 +23,26 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isListening, setIsListening] = useState(false);
+  const [featuredWorker, setFeaturedWorker] = useState<WorkerProfile | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFeaturedWorker() {
+      try {
+        const workerList = await getWorkers();
+        if (isMounted && workerList.length > 0) {
+          const lead = workerList.find((w) => w.isTeamLead) || workerList[0];
+          setFeaturedWorker(lead);
+        }
+      } catch (err) {
+        console.warn('Error loading workers for CustomerHomeScreen:', err);
+      }
+    }
+    loadFeaturedWorker();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const categories = ['All', 'Electrical', 'Plumbing', 'Carpentry', 'Cleaning', 'Appliances'];
 
@@ -405,18 +428,24 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
               </div>
 
               <div className="flex items-center gap-3">
-                <img
-                  src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=160&auto=format&fit=crop&q=80"
-                  alt="Ravi Kumar"
-                  className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-600"
+                <UserAvatar
+                  avatarUrl={featuredWorker?.avatarUrl}
+                  name={featuredWorker?.name || "Ravi Kumar"}
+                  size="md"
+                  className="border-2 border-emerald-600 shrink-0"
                 />
-                <div>
-                  <h4 className="font-bold text-sm text-[#1a1c19]">Ravi Kumar</h4>
-                  <p className="text-xs text-[#707975]">Master Electrician • Undi Cluster</p>
-                  <div className="flex items-center gap-1 text-xs text-[#835500] font-bold mt-0.5">
-                    <span className="material-symbols-outlined text-xs">star</span>
-                    <span>4.9 / 5.0</span>
-                    <span className="text-slate-400 font-normal">(420+ jobs)</span>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-sm text-[#1a1c19] truncate">{featuredWorker?.name || "Ravi Kumar"}</h4>
+                  <p className="text-xs text-[#707975] truncate">{featuredWorker?.title || "Master Electrician"} • {featuredWorker?.cluster || "Undi Cluster"}</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <div className="flex items-center gap-0.5 text-xs text-[#835500] font-bold">
+                      <span className="material-symbols-outlined text-xs">star</span>
+                      <span>{featuredWorker?.rating || 4.9}</span>
+                      <span className="text-slate-400 font-normal">({featuredWorker?.jobsCompleted || 420}+ jobs)</span>
+                    </div>
+                    {featuredWorker && (
+                      <TrustScoreBadge worker={featuredWorker} variant="compact" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -436,10 +465,11 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
             {/* Direct Empowerment Quote Card */}
             <div className="bg-[#eeeee9]/70 rounded-3xl p-5 border border-[#e3e3de] space-y-3">
               <div className="flex items-center gap-3">
-                <img
-                  src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=160&auto=format&fit=crop&q=80"
-                  alt="Manjunath S."
-                  className="w-12 h-12 rounded-2xl object-cover border border-amber-600/30"
+                <UserAvatar
+                  avatarUrl=""
+                  name="Manjunath S."
+                  size="md"
+                  className="border border-amber-600/30 shrink-0"
                 />
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#835500] block">

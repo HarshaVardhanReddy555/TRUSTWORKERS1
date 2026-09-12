@@ -108,6 +108,12 @@ export function mapWorkerRowToProfile(row: any): WorkerProfile {
     },
     isTeamLead: Boolean(row.is_team_lead),
     teamId: row.team_id,
+    cancelledJobs:
+      row.cancelled_jobs !== undefined && row.cancelled_jobs !== null
+        ? Number(row.cancelled_jobs)
+        : undefined,
+    verification_tier: row.verification_tier || row.verificationTier || undefined,
+    verificationTier: row.verification_tier || row.verificationTier || undefined,
   };
 }
 
@@ -127,6 +133,202 @@ export async function getWorkers(): Promise<WorkerProfile[]> {
     console.warn('Fallback to default workers due to error:', err);
     return [WORKER_RAVI, WORKER_SURESH];
   }
+}
+
+export async function saveWorkerToSupabase(
+  worker: Partial<WorkerProfile>
+): Promise<WorkerProfile> {
+  const finalId = isValidUUID(worker.id) ? worker.id! : generateUUID();
+  const rawPhone = (worker.phone || '').trim();
+  const normalizedPhone = rawPhone.startsWith('+')
+    ? rawPhone
+    : rawPhone.length === 10
+    ? `+91 ${rawPhone}`
+    : rawPhone || '+91 98480 00000';
+
+  const workerObj: WorkerProfile = {
+    id: finalId,
+    name: (worker.name || 'Partner Member').trim(),
+    title: (worker.title || 'Cooperative Technician').trim(),
+    phone: normalizedPhone,
+    email:
+      (worker.email || '').trim() ||
+      `${(worker.name || 'worker').toLowerCase().replace(/\s+/g, '.')}.coop@gmail.com`,
+    rating: worker.rating ?? 5.0,
+    reviewsCount: worker.reviewsCount ?? 0,
+    experienceYears: Number(worker.experienceYears ?? 1),
+    jobsCompleted: Number(worker.jobsCompleted ?? 0),
+    onTimePercent: Number(worker.onTimePercent ?? 100),
+    hourlyRate: Number(worker.hourlyRate ?? 250),
+    avatarUrl: (worker.avatarUrl || (worker as any)?.avatar_url || '').trim(),
+    qualifications: worker.qualifications || [],
+    languages:
+      worker.languages && worker.languages.length > 0
+        ? worker.languages
+        : ['Telugu', 'English'],
+    mandal: worker.mandal || 'Undi Mandal',
+    cluster: worker.cluster || 'Cluster A - Undi Central',
+    shareholderId:
+      worker.shareholderId ||
+      `AP-COOP-${Math.floor(1000 + Math.random() * 9000)}`,
+    education: worker.education || {
+      level: '10th Standard / SSC / Matriculation (Eligible)',
+      school: 'Zilla Parishad High School',
+      rollNo: 'SSC-PASS',
+      passYear: '2018',
+    },
+    kyc: worker.kyc || {
+      aadhaarMasked: '•••• Verified',
+      upiId: 'coop.worker@upi',
+    },
+    isTeamLead: Boolean(worker.isTeamLead),
+    teamId: worker.teamId || undefined,
+    cancelledJobs: Number(worker.cancelledJobs ?? 0),
+    verification_tier: worker.verification_tier || worker.verificationTier || 'Bronze',
+    verificationTier: worker.verification_tier || worker.verificationTier || 'Bronze',
+  };
+
+  if (isSupabaseConfigured) {
+    try {
+      const rowToUpsert: Record<string, any> = {
+        id: workerObj.id,
+        name: workerObj.name,
+        title: workerObj.title,
+        phone: workerObj.phone,
+        email: workerObj.email || null,
+        rating: workerObj.rating,
+        reviews_count: workerObj.reviewsCount,
+        experience_years: workerObj.experienceYears,
+        jobs_completed: workerObj.jobsCompleted,
+        on_time_percent: workerObj.onTimePercent,
+        hourly_rate: workerObj.hourlyRate,
+        avatar_url: workerObj.avatarUrl,
+        qualifications: workerObj.qualifications,
+        languages: workerObj.languages,
+        mandal: workerObj.mandal,
+        cluster: workerObj.cluster,
+        shareholder_id: workerObj.shareholderId,
+        education: workerObj.education,
+        kyc: workerObj.kyc,
+        is_team_lead: workerObj.isTeamLead,
+      };
+
+      if (workerObj.verification_tier) {
+        rowToUpsert.verification_tier = workerObj.verification_tier;
+      }
+      if (workerObj.cancelledJobs != null) {
+        rowToUpsert.cancelled_jobs = workerObj.cancelledJobs;
+      }
+
+      const { data, error } = await supabase
+        .from('workers')
+        .upsert(rowToUpsert, { onConflict: 'phone' })
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('Supabase saveWorkerToSupabase upsert warning:', error.message);
+        // Fallback without optional columns if table schema lacks them
+        delete rowToUpsert.verification_tier;
+        delete rowToUpsert.cancelled_jobs;
+
+        const { data: retryData, error: retryErr } = await supabase
+          .from('workers')
+          .upsert(rowToUpsert, { onConflict: 'phone' })
+          .select()
+          .single();
+
+        if (retryErr) {
+          console.warn('Retry without extra columns error:', retryErr.message);
+          // Try lookup and update
+          const { data: existing } = await supabase
+            .from('workers')
+            .select('*')
+            .eq('phone', workerObj.phone)
+            .maybeSingle();
+
+          if (existing) {
+            await supabase.from('workers').update(rowToUpsert).eq('id', existing.id);
+            workerObj.id = existing.id;
+          }
+        } else if (retryData) {
+          const mapped = mapWorkerRowToProfile(retryData);
+          workerObj.id = mapped.id;
+          workerObj.name = mapped.name;
+          workerObj.title = mapped.title;
+        }
+      } else if (data) {
+        const mapped = mapWorkerRowToProfile(data);
+        workerObj.id = mapped.id;
+        workerObj.name = mapped.name;
+        workerObj.title = mapped.title;
+      }
+    } catch (err) {
+      console.warn('Error saving worker to Supabase:', err);
+    }
+  }
+
+  try {
+    localStorage.setItem('trustworkers_current_worker', JSON.stringify(workerObj));
+  } catch (_) {}
+
+  return workerObj;
+}
+
+export async function getWorkerByIdentifier(
+  identifier: string
+): Promise<WorkerProfile | null> {
+  if (!identifier?.trim()) return null;
+  const raw = identifier.trim();
+  const clean = raw.toLowerCase();
+
+  if (isSupabaseConfigured) {
+    try {
+      let query = supabase.from('workers').select('*');
+      if (clean.includes('@')) {
+        query = query.ilike('email', clean);
+      } else if (/^[+0-9\s-]+$/.test(clean)) {
+        const digits = clean.replace(/[^0-9]/g, '');
+        const last10 = digits.slice(-10);
+        query = query.or(`phone.eq.${raw},phone.ilike.%${last10}%`);
+      } else {
+        query = query.ilike('name', `%${clean}%`);
+      }
+
+      const { data, error } = await query.limit(1);
+      if (!error && data && data.length > 0) {
+        return mapWorkerRowToProfile(data[0]);
+      }
+    } catch (err) {
+      console.warn('Error fetching worker from Supabase:', err);
+    }
+  }
+
+  // Local fallback: check localStorage
+  try {
+    const saved = localStorage.getItem('trustworkers_current_worker');
+    if (saved) {
+      const parsed: WorkerProfile = JSON.parse(saved);
+      if (
+        parsed.email?.toLowerCase() === clean ||
+        parsed.phone.replace(/[^0-9]/g, '').includes(clean.replace(/[^0-9]/g, '')) ||
+        parsed.name.toLowerCase().includes(clean)
+      ) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+
+  // Mock workers fallback
+  const mockWorkers = [WORKER_RAVI, WORKER_SURESH];
+  const found = mockWorkers.find(
+    (w) =>
+      w.email?.toLowerCase() === clean ||
+      w.phone.replace(/[^0-9]/g, '').includes(clean.replace(/[^0-9]/g, '')) ||
+      w.name.toLowerCase().includes(clean)
+  );
+
+  return found || null;
 }
 
 // ----------------------------------------------------------------------
@@ -250,6 +452,7 @@ function mapBookingRow(row: any, assignedWorkers: WorkerProfile[]): Booking {
     workerCount: row.worker_count || 1,
     durationHours: Number(row.duration_hours || 1),
     assignedWorkers: assignedWorkers.length > 0 ? assignedWorkers : [WORKER_RAVI],
+    customerId: row.customer_id,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
     address: row.address,
@@ -298,22 +501,43 @@ export async function getBookings(): Promise<Booking[]> {
   }
 }
 
-export async function getActiveBooking(): Promise<Booking | null> {
+export async function getActiveBooking(customerId?: string, customerPhone?: string): Promise<Booking | null> {
   if (!isSupabaseConfigured) {
-    return SAMPLE_ACTIVE_BOOKING;
+    if (customerId || customerPhone) {
+      return SAMPLE_ACTIVE_BOOKING;
+    }
+    return null;
   }
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('bookings')
       .select('*, booking_assigned_workers(worker_id, workers(*))')
-      .in('status', ['searching', 'assigned', 'en-route', 'in-progress'])
-      .order('date_str', { ascending: false })
-      .limit(1);
+      .in('status', ['searching', 'assigned', 'en-route', 'in-progress']);
+
+    const conditions: string[] = [];
+    if (customerId && isValidUUID(customerId)) {
+      conditions.push(`customer_id.eq.${customerId}`);
+    }
+    if (customerPhone) {
+      const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10) {
+        const last10 = cleanPhone.slice(-10);
+        conditions.push(`customer_phone.ilike.%${last10}%`);
+      }
+    }
+
+    if (conditions.length > 0) {
+      query = query.or(conditions.join(','));
+    } else {
+      return null;
+    }
+
+    const { data, error } = await query.order('date_str', { ascending: false }).limit(1);
 
     if (error || !data || data.length === 0) {
       if (error) console.warn('Supabase getActiveBooking warning:', error.message);
-      return SAMPLE_ACTIVE_BOOKING;
+      return null;
     }
 
     const row = data[0];
@@ -324,8 +548,96 @@ export async function getActiveBooking(): Promise<Booking | null> {
 
     return mapBookingRow(row, assigned);
   } catch (err) {
-    console.warn('Fallback to SAMPLE_ACTIVE_BOOKING due to error:', err);
-    return SAMPLE_ACTIVE_BOOKING;
+    console.warn('Error fetching active booking:', err);
+    return null;
+  }
+}
+
+export async function getBookingHistoryForCustomer(
+  customerId: string,
+  customerPhone?: string
+): Promise<Booking[]> {
+  if (!isSupabaseConfigured || (!customerId && !customerPhone)) {
+    return INITIAL_BOOKINGS;
+  }
+
+  try {
+    let query = supabase
+      .from('bookings')
+      .select('*, booking_assigned_workers(worker_id, workers(*))');
+
+    const conditions: string[] = [];
+    if (customerId && isValidUUID(customerId)) {
+      conditions.push(`customer_id.eq.${customerId}`);
+    }
+    if (customerPhone) {
+      const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10) {
+        const last10 = cleanPhone.slice(-10);
+        conditions.push(`customer_phone.ilike.%${last10}%`);
+      }
+    }
+
+    if (conditions.length > 0) {
+      query = query.or(conditions.join(','));
+    }
+
+    const { data, error } = await query.order('date_str', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      if (error) console.warn('Supabase getBookingHistoryForCustomer warning:', error.message);
+      return [];
+    }
+
+    return data.map((row: any) => {
+      const assigned: WorkerProfile[] = (row.booking_assigned_workers || [])
+        .map((baw: any) => baw.workers)
+        .filter(Boolean)
+        .map(mapWorkerRowToProfile);
+
+      return mapBookingRow(row, assigned);
+    });
+  } catch (err) {
+    console.warn('Error fetching booking history for customer:', err);
+    return [];
+  }
+}
+
+export async function getBookingsForWorker(workerId: string): Promise<Booking[]> {
+  if (!isSupabaseConfigured || !workerId) {
+    return INITIAL_BOOKINGS;
+  }
+
+  try {
+    const { data: joins, error: joinErr } = await supabase
+      .from('booking_assigned_workers')
+      .select('booking_id')
+      .eq('worker_id', workerId);
+
+    if (joinErr || !joins || joins.length === 0) {
+      return [];
+    }
+
+    const bookingIds = joins.map((j: any) => j.booking_id);
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*, booking_assigned_workers(worker_id, workers(*))')
+      .in('id', bookingIds)
+      .order('date_str', { ascending: false });
+
+    if (error || !data) return [];
+
+    return data.map((row: any) => {
+      const assigned: WorkerProfile[] = (row.booking_assigned_workers || [])
+        .map((baw: any) => baw.workers)
+        .filter(Boolean)
+        .map(mapWorkerRowToProfile);
+
+      return mapBookingRow(row, assigned);
+    });
+  } catch (err) {
+    console.warn('Error fetching bookings for worker:', err);
+    return [];
   }
 }
 
@@ -340,6 +652,14 @@ export function findMatchingService(
 ): string | null {
   if (!services || services.length === 0) return null;
 
+  // 1. Direct ID match if serviceId is valid and exists in services table
+  if (serviceId && isValidUUID(serviceId)) {
+    const directIdMatch = services.find((s) => s.id.toLowerCase() === serviceId.toLowerCase());
+    if (directIdMatch) {
+      return directIdMatch.id;
+    }
+  }
+
   const sNameRaw = (serviceName || '').trim().toLowerCase();
   const sCatRaw = (category || '').trim().toLowerCase();
 
@@ -349,26 +669,6 @@ export function findMatchingService(
     .replace(/\s*(&|\+)\s*trade\s+support/i, '')
     .replace(/\s*-\s*.*$/, '')
     .trim();
-
-  // 1. Direct ID match if serviceId is valid and exists in services table
-  if (serviceId && isValidUUID(serviceId)) {
-    const directIdMatch = services.find((s) => s.id.toLowerCase() === serviceId.toLowerCase());
-    if (directIdMatch) {
-      const matchNameLower = directIdMatch.name.toLowerCase();
-      const matchCatLower = (directIdMatch.category || '').toLowerCase();
-      // Ensure directIdMatch is not contradictory to serviceName
-      const isContradictory =
-        sNameClean &&
-        !matchNameLower.includes(sNameClean) &&
-        !sNameClean.includes(matchNameLower) &&
-        !matchCatLower.includes(sNameClean) &&
-        !sNameClean.includes(matchCatLower);
-
-      if (!isContradictory) {
-        return directIdMatch.id;
-      }
-    }
-  }
 
   // 2. Exact match on clean name, raw name, or category against services table
   for (const s of services) {
@@ -401,8 +701,28 @@ export function findMatchingService(
     }
   }
 
-  // 4. Trade Root / Stem matching (e.g. "paint" matches "Painter" and "Painting")
-  const TRADE_STEMS = ['paint', 'plumb', 'electr', 'carpent', 'applian', 'clean', 'mason', 'weld'];
+  // 4. Word-by-word token overlap
+  const inputWords = `${sNameClean} ${sNameRaw} ${sCatRaw}`
+    .split(/[\s,/:&+-]+/)
+    .filter((w) => w.length > 2);
+  for (const s of services) {
+    const dbWords = `${s.name || ''} ${s.category || ''}`
+      .toLowerCase()
+      .split(/[\s,/:&+-]+/)
+      .filter((w) => w.length > 2);
+    const hasOverlap = inputWords.some((iw) =>
+      dbWords.some((dw) => dw.includes(iw) || iw.includes(dw))
+    );
+    if (hasOverlap) {
+      return s.id;
+    }
+  }
+
+  // 5. Trade Root / Stem matching (e.g. "paint" matches "Painter" and "Painting")
+  const TRADE_STEMS = [
+    'paint', 'plumb', 'electr', 'carpent', 'applian', 'clean', 'pest', 'mason', 'weld',
+    'wire', 'ac', 'cool', 'leak', 'pipe', 'tap', 'wood', 'door', 'lock', 'motor', 'pump'
+  ];
   for (const stem of TRADE_STEMS) {
     const inputHasStem =
       sNameClean.includes(stem) ||
@@ -419,7 +739,7 @@ export function findMatchingService(
     }
   }
 
-  // 5. Fallback to first available service in list
+  // 6. Fallback to first available service in list
   return services[0]?.id || null;
 }
 
@@ -441,6 +761,11 @@ export async function createBooking(booking: Booking): Promise<Booking> {
           booking.serviceName,
           booking.category
         );
+
+        // Guarantee that if dbServices has rows, resolvedServiceId is one of them
+        if (!resolvedServiceId || !dbServices.some((s) => s.id === resolvedServiceId)) {
+          resolvedServiceId = dbServices[0].id;
+        }
       }
 
       // 2. If list query didn't yield a result, attempt targeted ILIKE queries directly
@@ -489,7 +814,7 @@ export async function createBooking(booking: Booking): Promise<Booking> {
 
   // Safety fallback to verified UUID
   if (!resolvedServiceId) {
-    resolvedServiceId = '40000000-0000-0000-0000-000000000004';
+    resolvedServiceId = '40000000-0000-0000-0000-000000000001';
   }
 
   // A brand new booking MUST always start at status="searching", stepCurrent=1, paymentStatus="pending"
@@ -522,6 +847,7 @@ export async function createBooking(booking: Booking): Promise<Booking> {
       time_window: preparedBooking.timeWindow,
       worker_count: preparedBooking.workerCount,
       duration_hours: preparedBooking.durationHours,
+      customer_id: preparedBooking.customerId || null,
       customer_name: preparedBooking.customerName,
       customer_phone: preparedBooking.customerPhone,
       address: preparedBooking.address,
@@ -536,10 +862,20 @@ export async function createBooking(booking: Booking): Promise<Booking> {
       arriving_minutes: preparedBooking.arrivingMinutes || 12,
     };
 
-    const { error } = await supabase.from('bookings').insert(rowToInsert);
+    let { error } = await supabase.from('bookings').insert(rowToInsert);
 
     if (error) {
       console.warn('Error inserting booking into Supabase:', error.message);
+      if (error.message && (error.message.includes('customer_id') || error.message.includes('column'))) {
+        const { customer_id, ...withoutCustomerId } = rowToInsert;
+        const retryRes = await supabase.from('bookings').insert(withoutCustomerId);
+        error = retryRes.error;
+      }
+      // Fallback: If FK constraint failed on service_id, retry insert with service_id: null
+      if (error && error.message && (error.message.includes('foreign key') || error.message.includes('service_id'))) {
+        console.warn('Retrying booking insert with service_id: null due to FK constraint...');
+        await supabase.from('bookings').insert({ ...rowToInsert, service_id: null });
+      }
     } else {
       // Also insert assigned workers if any have valid UUIDs
       if (preparedBooking.assignedWorkers && preparedBooking.assignedWorkers.length > 0) {
@@ -633,63 +969,162 @@ export async function getActiveJobRequests(): Promise<ActiveJobRequest[]> {
 }
 
 // ----------------------------------------------------------------------
-// 6. CUSTOMERS
+// 6. CUSTOMERS & AVATAR STORAGE
 // ----------------------------------------------------------------------
+
+/**
+ * Upload an avatar image file to the Supabase Storage 'avatars' bucket.
+ * Gracefully falls back to a base64 Data URL if the bucket is not yet created
+ * or in offline demo mode.
+ */
+export async function uploadAvatarToSupabase(
+  file: File,
+  userId: string,
+  userType: 'worker' | 'customer'
+): Promise<string> {
+  if (!file) {
+    throw new Error('No file provided for upload');
+  }
+
+  // Derive file extension and path
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const cleanExt = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext) ? ext : 'jpg';
+  const safeId = (userId || 'user').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filePath = `${userType}s/${safeId}_${Date.now()}.${cleanExt}`;
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type || `image/${cleanExt}`,
+        });
+
+      if (error) {
+        console.warn('Supabase storage upload error:', error.message);
+        return await readFileAsDataUrl(file);
+      }
+
+      if (data?.path) {
+        const { data: publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(data.path);
+
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase storage upload exception:', err);
+      return await readFileAsDataUrl(file);
+    }
+  }
+
+  return await readFileAsDataUrl(file);
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function saveCustomerToSupabase(customer: {
   id?: string;
   name: string;
   phone: string;
   email?: string;
+  avatarUrl?: string;
+  avatar_url?: string;
 }): Promise<CustomerProfile> {
   const normalizedPhone = customer.phone?.trim() || '+91 98765 43210';
+  const avatarUrl = (customer.avatarUrl || customer.avatar_url || '').trim();
   const customerObj: CustomerProfile = {
     id: customer.id || generateUUID(),
     name: customer.name.trim(),
     phone: normalizedPhone,
     email: customer.email?.trim() || undefined,
+    avatarUrl: avatarUrl || undefined,
   };
 
   if (isSupabaseConfigured) {
     try {
+      const payload: Record<string, any> = {
+        id: customerObj.id,
+        name: customerObj.name,
+        phone: customerObj.phone,
+        email: customerObj.email || null,
+        avatar_url: avatarUrl || null,
+      };
+
       // Upsert customer into the customers table on conflict (phone)
       const { data, error } = await supabase
         .from('customers')
-        .upsert(
-          {
-            id: customerObj.id,
-            name: customerObj.name,
-            phone: customerObj.phone,
-            email: customerObj.email || null,
-          },
-          { onConflict: 'phone' }
-        )
+        .upsert(payload, { onConflict: 'phone' })
         .select()
         .single();
 
       if (error) {
         console.warn('Supabase saveCustomerToSupabase warning:', error.message);
-        // Fallback: check if existing customer with same phone exists and update name/email
-        const { data: searchRow } = await supabase
+        // Fallback: if table doesn't have avatar_url yet, retry without it
+        delete payload.avatar_url;
+        const { data: retryData, error: retryErr } = await supabase
           .from('customers')
-          .select('*')
-          .eq('phone', customerObj.phone)
-          .maybeSingle();
+          .upsert(payload, { onConflict: 'phone' })
+          .select()
+          .single();
 
-        if (searchRow) {
-          await supabase
+        if (!retryErr && retryData) {
+          customerObj.id = retryData.id;
+          customerObj.name = retryData.name;
+          customerObj.phone = retryData.phone;
+          customerObj.email = retryData.email || undefined;
+          if (retryData.avatar_url) {
+            customerObj.avatarUrl = retryData.avatar_url;
+          }
+        } else {
+          // Fallback: check if existing customer with same phone exists and update name/email
+          const { data: searchRow } = await supabase
             .from('customers')
-            .update({
+            .select('*')
+            .eq('phone', customerObj.phone)
+            .maybeSingle();
+
+          if (searchRow) {
+            const updatePayload: Record<string, any> = {
               name: customerObj.name,
               email: customerObj.email || null,
-            })
-            .eq('id', searchRow.id);
-          customerObj.id = searchRow.id;
+            };
+            if (avatarUrl) updatePayload.avatar_url = avatarUrl;
+
+            const { error: updErr } = await supabase
+              .from('customers')
+              .update(updatePayload)
+              .eq('id', searchRow.id);
+
+            if (updErr && updErr.message.includes('avatar_url')) {
+              delete updatePayload.avatar_url;
+              await supabase
+                .from('customers')
+                .update(updatePayload)
+                .eq('id', searchRow.id);
+            }
+            customerObj.id = searchRow.id;
+          }
         }
       } else if (data) {
         customerObj.id = data.id;
         customerObj.name = data.name;
         customerObj.phone = data.phone;
         customerObj.email = data.email || undefined;
+        if (data.avatar_url) {
+          customerObj.avatarUrl = data.avatar_url;
+        }
       }
     } catch (err) {
       console.warn('Error saving customer to Supabase:', err);
@@ -728,6 +1163,7 @@ export async function getCustomerByIdentifier(identifier: string): Promise<Custo
         name: data.name,
         phone: data.phone,
         email: data.email || undefined,
+        avatarUrl: data.avatar_url || undefined,
       };
     }
   } catch (err) {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CustomerProfile, ScreenId, UserRole } from '../types';
 import { CustomerAvatar } from './CustomerAvatar';
+import { AvatarUpload } from './AvatarUpload';
 import { saveCustomerToSupabase } from '../lib/supabaseService';
 
 interface CustomerProfileScreenProps {
@@ -23,6 +24,25 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const handleAvatarUpload = async (newUrl: string) => {
+    try {
+      const updated = await saveCustomerToSupabase({
+        id: customer?.id,
+        name: name.trim() || customer?.name || 'Citizen Member',
+        phone: phone.trim() || customer?.phone || '+91 98765 43210',
+        email: email.trim() || customer?.email || undefined,
+        avatarUrl: newUrl,
+      });
+      if (onUpdateCustomer) {
+        onUpdateCustomer(updated);
+      }
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.warn('Error updating customer avatar:', err);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -32,6 +52,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
         name: name.trim() || 'Citizen Member',
         phone: phone.trim(),
         email: email.trim() || undefined,
+        avatarUrl: customer?.avatarUrl,
       });
       if (onUpdateCustomer) {
         onUpdateCustomer(updated);
@@ -83,7 +104,16 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 <>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <CustomerAvatar name={customer?.name || name} size="xl" />
+                      <AvatarUpload
+                        currentAvatarUrl={customer?.avatarUrl}
+                        name={customer?.name || name}
+                        userId={customer?.id || customer?.phone || 'customer'}
+                        userType="customer"
+                        size="xl"
+                        label=""
+                        subLabel=""
+                        onUploadComplete={handleAvatarUpload}
+                      />
                       <div>
                         <div className="flex items-center gap-2">
                           <h2 className="font-bold text-base text-[#1a1c19]">
@@ -95,6 +125,10 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                         </div>
                         <p className="text-xs text-[#707975] mt-0.5">{customer?.phone || phone}</p>
                         <p className="text-xs text-[#707975]">{customer?.email || email || 'Not provided'}</p>
+                        <p className="text-[11px] text-[#00342b] font-medium mt-1 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs">photo_camera</span>
+                          <span>Click photo to update</span>
+                        </p>
                       </div>
                     </div>
                     <button
@@ -111,7 +145,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               ) : (
                 <form onSubmit={handleSaveProfile} className="space-y-3">
                   <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                    <CustomerAvatar name={name} size="lg" />
+                    <CustomerAvatar name={name} avatarUrl={customer?.avatarUrl} size="lg" />
                     <div>
                       <span className="text-xs font-bold text-[#1a1c19] block">Editing Profile</span>
                       <span className="text-[10px] text-slate-500">Updates saved directly to Supabase</span>

@@ -1,54 +1,51 @@
 import React, { useState } from 'react';
-import { ScreenId, UserRole } from '../types';
+import { ScreenId, UserRole, WorkerProfile } from '../types';
+import { saveWorkerToSupabase } from '../lib/supabaseService';
+import { AvatarUpload } from './AvatarUpload';
 
 interface RegisterWorkerScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   setUserRole: (role: UserRole) => void;
+  onRegisterSuccess?: (worker: WorkerProfile) => void;
 }
 
 export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
   setCurrentScreen,
   setUserRole,
+  onRegisterSuccess,
 }) => {
   // Step 1: Personal
-  const [fullName, setFullName] = useState('Ravi Kumar');
-  const [mobile, setMobile] = useState('98480 23145');
-  const [email, setEmail] = useState('ravi.electrician.undi@gmail.com');
-  const [password, setPassword] = useState('ravi@undi2024');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
-  const [dob, setDob] = useState('1995-06-14');
+  const [dob, setDob] = useState('');
 
   // Step 2: Location
-  const [village, setVillage] = useState('Undi');
-  const [mandal, setMandal] = useState('Undi Mandal');
-  const [district, setDistrict] = useState('West Godavari');
+  const [village, setVillage] = useState('');
+  const [mandal, setMandal] = useState('');
+  const [district, setDistrict] = useState('');
   const [stateName, setStateName] = useState('Andhra Pradesh');
-  const [pincode, setPincode] = useState('534199');
+  const [pincode, setPincode] = useState('');
 
   // Step 3: Trade & Skills
-  const [trade, setTrade] = useState('Licensed Electrician & Wiring');
-  const [experience, setExperience] = useState('7');
+  const [trade, setTrade] = useState('');
+  const [experience, setExperience] = useState('');
   const [availability, setAvailability] = useState('Full-Time (Daily)');
-  const [skills, setSkills] = useState<string[]>([
-    'Electrical Wiring',
-    'Motor & Pump Repair',
-    'Fan & Switchboards',
-    'Solar Inverter Setup',
-  ]);
-  const [languages, setLanguages] = useState<string[]>(['Telugu', 'Hindi', 'English']);
+  const [skills, setSkills] = useState<string[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
 
   // Step 4: 10th Pass Verification
   const [educationLevel, setEducationLevel] = useState('10th Standard / SSC / Matriculation (Eligible)');
-  const [schoolName, setSchoolName] = useState('Zilla Parishad High School, Undi (BSEA)');
-  const [hallTicket, setHallTicket] = useState('SSC-2015-84920');
-  const [passYear, setPassYear] = useState('2015');
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string } | null>({
-    name: '10th_ssc_certificate_ravi.pdf',
-    size: '1.4 MB',
-  });
-  const [confirmEducation, setConfirmEducation] = useState(true);
-  const [confirmFairTrade, setConfirmFairTrade] = useState(true);
+  const [schoolName, setSchoolName] = useState('');
+  const [hallTicket, setHallTicket] = useState('');
+  const [passYear, setPassYear] = useState('');
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string } | null>(null);
+  const [confirmEducation, setConfirmEducation] = useState(false);
+  const [confirmFairTrade, setConfirmFairTrade] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleSkill = (skill: string) => {
@@ -67,7 +64,7 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadedFile) {
       alert('Mandatory 10th standard certificate upload is required by cooperative statute.');
@@ -79,11 +76,41 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const savedWorker = await saveWorkerToSupabase({
+        name: fullName.trim(),
+        phone: mobile.trim(),
+        email: email.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || undefined,
+        title: trade || 'Cooperative Technician',
+        experienceYears: parseInt(experience, 10) || 1,
+        qualifications: skills,
+        languages: languages.length > 0 ? languages : ['Telugu'],
+        mandal: mandal.trim() || 'Undi Mandal',
+        cluster: village.trim() ? `${village.trim()} Cluster` : 'Undi Cluster',
+        education: {
+          level: educationLevel,
+          school: schoolName.trim() || 'High School',
+          rollNo: hallTicket.trim() || 'SSC-MEMO',
+          passYear: passYear.trim() || '2018',
+        },
+        verification_tier: 'Bronze',
+        verificationTier: 'Bronze',
+      });
+
+      if (onRegisterSuccess) {
+        onRegisterSuccess(savedWorker);
+      }
+
       setUserRole('worker');
       setCurrentScreen('worker-home');
-    }, 600);
+    } catch (err) {
+      console.warn('Error saving worker during registration:', err);
+      setUserRole('worker');
+      setCurrentScreen('worker-home');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -133,11 +160,9 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
 
             {/* 100% Co-op Owned Visual Card */}
             <div className="bg-white rounded-3xl border border-[#e3e3de] p-5 flex items-center gap-4 shadow-2xs">
-              <img
-                src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=160&auto=format&fit=crop&q=80"
-                alt="Co-op partner"
-                className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-600/40 shrink-0"
-              />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00342b] to-[#004d40] text-emerald-100 border-2 border-emerald-600/40 flex items-center justify-center shrink-0 shadow-2xs">
+                <span className="material-symbols-outlined text-2xl">handshake</span>
+              </div>
               <div className="text-xs space-y-0.5">
                 <div className="font-bold text-[#00342b] text-sm">100% Cooperative Owned</div>
                 <p className="text-[#3f4945] leading-snug">
@@ -177,12 +202,24 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
           <div className="lg:col-span-8 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Section 1: Personal Details */}
-              <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-4">
+              <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs space-y-5">
                 <div className="flex items-center gap-2 pb-2 border-b border-[#e3e3de]">
                   <span className="material-symbols-outlined text-[#00342b] text-xl">person</span>
                   <h2 className="font-display font-bold text-base text-[#1a1c19]">
                     1. Personal Details (Government ID Linked)
                   </h2>
+                </div>
+
+                {/* Profile Photo Upload */}
+                <div className="pb-4 border-b border-[#e3e3de]/60">
+                  <AvatarUpload
+                    currentAvatarUrl={avatarUrl}
+                    name={fullName}
+                    userType="worker"
+                    onUploadComplete={(url) => setAvatarUrl(url)}
+                    label="Worker Profile Photo"
+                    subLabel="Upload your real photo for customer verification and digital member ID card"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -396,8 +433,10 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
                   <select
                     value={trade}
                     onChange={(e) => setTrade(e.target.value)}
+                    required
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#bfc9c4] text-xs font-medium bg-white"
                   >
+                    <option value="" disabled>Select primary trade craft</option>
                     <option value="Licensed Electrician & Wiring">Licensed Electrician & Wiring</option>
                     <option value="Certified Plumber & Sanitary">Certified Plumber & Sanitary</option>
                     <option value="Master Carpenter & Polish">Master Carpenter & Polish</option>
@@ -642,7 +681,7 @@ export const RegisterWorkerScreen: React.FC<RegisterWorkerScreenProps> = ({
                       <button
                         type="button"
                         onClick={() =>
-                          setUploadedFile({ name: '10th_ssc_certificate_ravi.pdf', size: '1.4 MB' })
+                          setUploadedFile({ name: '10th_ssc_memo_certificate.pdf', size: '1.4 MB' })
                         }
                         className="mt-3 text-xs font-bold text-emerald-800 bg-white border border-emerald-300 px-4 py-1.5 rounded-xl hover:bg-emerald-50"
                       >

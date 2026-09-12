@@ -24,7 +24,8 @@ CREATE TABLE customers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   phone TEXT UNIQUE NOT NULL,
-  email TEXT
+  email TEXT,
+  avatar_url TEXT
 );
 
 -- 2. Teams Table
@@ -53,7 +54,7 @@ CREATE TABLE workers (
   jobs_completed INT DEFAULT 0,
   on_time_percent NUMERIC(5, 2) DEFAULT 95.00,
   hourly_rate NUMERIC(10, 2) NOT NULL DEFAULT 200.00,
-  avatar_url TEXT NOT NULL,
+  avatar_url TEXT DEFAULT '',
   qualifications TEXT[] DEFAULT '{}',
   languages TEXT[] DEFAULT '{}',
   mandal TEXT NOT NULL,

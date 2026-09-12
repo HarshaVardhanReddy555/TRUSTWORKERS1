@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Booking, CustomerProfile, ScreenId, ServiceItem, UserRole } from './types';
+import { Booking, CustomerProfile, ScreenId, ServiceItem, UserRole, WorkerProfile } from './types';
 import {
   getServices,
   getActiveBooking,
   createBookingInSupabase,
   updateBookingStatusInSupabase,
 } from './lib/supabaseService';
+import { WORKER_RAVI } from './mockData';
 import { NavigationHeader } from './components/NavigationHeader';
 import { BottomNav } from './components/BottomNav';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -32,26 +33,29 @@ export function App() {
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [chatPartnerName, setChatPartnerName] = useState<string>('Ravi Kumar');
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfile>(() => {
+    try {
+      const saved = localStorage.getItem('trustworkers_current_worker');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return WORKER_RAVI;
+  });
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Load initial services & active booking from Supabase
+  // Load initial services from Supabase
   useEffect(() => {
     let isMounted = true;
     async function loadInitialData() {
       try {
-        const [loadedServices, loadedBooking] = await Promise.all([
-          getServices(),
-          getActiveBooking(),
-        ]);
+        const loadedServices = await getServices();
         if (isMounted) {
           setServices(loadedServices);
           if (loadedServices.length > 0) {
             setSelectedService(loadedServices[0]);
           }
-          setActiveBooking(loadedBooking);
         }
       } catch (err) {
-        console.warn('Error loading initial Supabase data:', err);
+        console.warn('Error loading initial Supabase services:', err);
       } finally {
         if (isMounted) {
           setIsLoadingData(false);
@@ -64,17 +68,46 @@ export function App() {
     };
   }, []);
 
+  // Load active booking scoped to logged-in customer profile
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCustomerActiveBooking() {
+      if (!customerProfile?.id && !customerProfile?.phone) {
+        if (isMounted) setActiveBooking(null);
+        return;
+      }
+      try {
+        const booking = await getActiveBooking(customerProfile?.id, customerProfile?.phone);
+        if (isMounted) {
+          setActiveBooking(booking);
+        }
+      } catch (err) {
+        console.warn('Error loading active booking for customer:', err);
+      }
+    }
+    loadCustomerActiveBooking();
+    return () => {
+      isMounted = false;
+    };
+  }, [customerProfile?.id, customerProfile?.phone]);
+
   const handleSelectService = (service: ServiceItem) => {
     setSelectedService(service);
   };
 
   const handleConfirmSchedule = async (booking: Booking) => {
+    const enriched: Booking = {
+      ...booking,
+      customerId: customerProfile?.id,
+      customerName: customerProfile?.name || booking.customerName,
+      customerPhone: customerProfile?.phone || booking.customerPhone,
+    };
+    setActiveBooking(enriched);
     try {
-      const persisted = await createBookingInSupabase(booking);
+      const persisted = await createBookingInSupabase(enriched);
       setActiveBooking(persisted);
     } catch (err) {
       console.warn('Error persisting booking to Supabase:', err);
-      setActiveBooking(booking);
     }
   };
 
@@ -167,12 +200,13 @@ export function App() {
     <div className="min-h-screen bg-[#fafaf5] flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-900">
       {/* Top Global Navigation Bar (Includes Role Switcher & Screen Jump for easy demo review) */}
       <NavigationHeader
-  currentScreen={currentScreen}
-  setCurrentScreen={setCurrentScreen}
-  userRole={userRole}
-  setUserRole={setUserRole}
-  customer={customerProfile || undefined}
-/>
+        currentScreen={currentScreen}
+        setCurrentScreen={setCurrentScreen}
+        userRole={userRole}
+        setUserRole={setUserRole}
+        customer={customerProfile || undefined}
+        worker={workerProfile}
+      />
 
       {/* Screen Render Container (Full Website Size) */}
       <main className="flex-1 w-full">
@@ -184,27 +218,29 @@ export function App() {
         )}
 
         {currentScreen === 'login' && (
-  <LoginScreen
-    setCurrentScreen={setCurrentScreen}
-    userRole={userRole}
-    setUserRole={setUserRole}
-    onLoginSuccess={(customer) => setCustomerProfile(customer)}
-    initialCustomerName={customerProfile?.name}
-  />
-)}
+          <LoginScreen
+            setCurrentScreen={setCurrentScreen}
+            userRole={userRole}
+            setUserRole={setUserRole}
+            onLoginSuccess={(customer) => setCustomerProfile(customer)}
+            onWorkerLoginSuccess={(worker) => setWorkerProfile(worker)}
+            initialCustomerName={customerProfile?.name}
+          />
+        )}
 
         {currentScreen === 'register-customer' && (
-  <RegisterCustomerScreen
-    setCurrentScreen={setCurrentScreen}
-    setUserRole={setUserRole}
-    onRegisterSuccess={(customer) => setCustomerProfile(customer)}
-  />
-)}
+          <RegisterCustomerScreen
+            setCurrentScreen={setCurrentScreen}
+            setUserRole={setUserRole}
+            onRegisterSuccess={(customer) => setCustomerProfile(customer)}
+          />
+        )}
 
         {currentScreen === 'register-worker' && (
           <RegisterWorkerScreen
             setCurrentScreen={setCurrentScreen}
             setUserRole={setUserRole}
+            onRegisterSuccess={(worker) => setWorkerProfile(worker)}
           />
         )}
 
@@ -219,13 +255,13 @@ export function App() {
         )}
 
         {currentScreen === 'schedule-service' && (
-  <ScheduleServiceScreen
-    selectedService={selectedService || services[0]}
-    onConfirmSchedule={handleConfirmSchedule}
-    setCurrentScreen={setCurrentScreen}
-    customer={customerProfile}
-  />
-)}
+          <ScheduleServiceScreen
+            selectedService={selectedService || services[0]}
+            onConfirmSchedule={handleConfirmSchedule}
+            setCurrentScreen={setCurrentScreen}
+            customer={customerProfile}
+          />
+        )}
 
         {currentScreen === 'live-dispatch' && (
           <LiveDispatchScreen
@@ -261,6 +297,7 @@ export function App() {
           <WorkerHomeScreen
             setCurrentScreen={setCurrentScreen}
             onOpenChat={handleOpenChat}
+            worker={workerProfile}
           />
         )}
 
@@ -268,6 +305,7 @@ export function App() {
           <WorkerProfileScreen
             setCurrentScreen={setCurrentScreen}
             onOpenChat={handleOpenChat}
+            worker={workerProfile}
             onBookWorker={() => {
               if (services.length > 0) {
                 setSelectedService(services[0]);
@@ -282,6 +320,7 @@ export function App() {
             activeBooking={activeBooking}
             setCurrentScreen={setCurrentScreen}
             onOpenLiveTracking={() => setCurrentScreen('live-tracking')}
+            customer={customerProfile}
           />
         )}
 

@@ -58,6 +58,9 @@ export interface WorkerProfile {
   };
   isTeamLead?: boolean;
   teamId?: string;
+  cancelledJobs?: number;
+  verification_tier?: 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | string;
+  verificationTier?: 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | string;
 }
 
 export type AvailabilityStatus = 'Available' | 'On Job' | 'Off Duty';
@@ -100,6 +103,7 @@ export interface Booking {
   workerCount: number;
   durationHours: number;
   assignedWorkers: WorkerProfile[];
+  customerId?: string;
   customerName: string;
   customerPhone: string;
   address: string;

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Booking, ScreenId, TeamProfile } from '../types';
-import { getBookings, getTeamProfile } from '../lib/supabaseService';
+import { Booking, CustomerProfile, ScreenId, TeamProfile } from '../types';
+import { getBookingHistoryForCustomer, getTeamProfile } from '../lib/supabaseService';
 
 interface CustomerBookingsScreenProps {
   activeBooking: Booking | null;
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenLiveTracking: () => void;
+  customer?: CustomerProfile | null;
 }
 
 export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
   activeBooking,
   setCurrentScreen,
   onOpenLiveTracking,
+  customer,
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
@@ -23,7 +25,7 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
     async function loadData() {
       try {
         const [bookingsData, teamData] = await Promise.all([
-          getBookings(),
+          getBookingHistoryForCustomer(customer?.id || '', customer?.phone || ''),
           getTeamProfile(),
         ]);
         if (isMounted) {
@@ -42,7 +44,7 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [customer?.id, customer?.phone]);
 
   const completedLiveBookings = liveBookings.filter((b) => b.status === 'completed');
 

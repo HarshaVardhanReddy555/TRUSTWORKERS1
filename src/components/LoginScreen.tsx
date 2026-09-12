@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { CustomerProfile, ScreenId, UserRole } from '../types';
-import { saveCustomerToSupabase, getCustomerByIdentifier } from '../lib/supabaseService';
+import { CustomerProfile, ScreenId, UserRole, WorkerProfile } from '../types';
+import {
+  saveCustomerToSupabase,
+  getCustomerByIdentifier,
+  getWorkerByIdentifier,
+  saveWorkerToSupabase,
+} from '../lib/supabaseService';
+import { UserAvatar } from './UserAvatar';
 
 interface LoginScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   onLoginSuccess?: (customer: CustomerProfile) => void;
+  onWorkerLoginSuccess?: (worker: WorkerProfile) => void;
   initialCustomerName?: string;
 }
 
@@ -15,6 +22,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   userRole,
   setUserRole,
   onLoginSuccess,
+  onWorkerLoginSuccess,
   initialCustomerName,
 }) => {
   const [activeTab, setActiveTab] = useState<'customer' | 'worker'>(userRole);
@@ -76,6 +84,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         }
         setCurrentScreen('customer-home');
       } else {
+        // Worker login branch
+        const enteredId = identifier.trim();
+        let resolvedWorker = await getWorkerByIdentifier(enteredId);
+
+        // If worker doesn't exist yet, create baseline profile with identifier
+        if (!resolvedWorker) {
+          const isEmail = enteredId.includes('@');
+          const finalName = isEmail
+            ? enteredId
+                .split('@')[0]
+                .replace(/[._-]/g, ' ')
+                .replace(/\b\w/g, (c) => c.toUpperCase())
+            : 'Partner Member';
+          const finalPhone = isEmail ? '+91 98480 00000' : enteredId;
+          const finalEmail = isEmail ? enteredId : undefined;
+
+          resolvedWorker = await saveWorkerToSupabase({
+            name: finalName,
+            phone: finalPhone,
+            email: finalEmail,
+            title: 'Cooperative Specialist',
+            verification_tier: 'Bronze',
+            verificationTier: 'Bronze',
+          });
+        }
+
+        if (onWorkerLoginSuccess && resolvedWorker) {
+          onWorkerLoginSuccess(resolvedWorker);
+        }
         setCurrentScreen('worker-home');
       }
     } catch (err) {
@@ -150,10 +187,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Testimonial Quote */}
             <div className="bg-white/10 rounded-2xl p-3.5 border border-white/10 text-xs">
               <div className="flex items-center gap-2.5 mb-1.5">
-                <img
-                  src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=120&auto=format&fit=crop&q=80"
-                  alt="Ramesh K."
-                  className="w-8 h-8 rounded-full object-cover border border-amber-400"
+                <UserAvatar
+                  avatarUrl=""
+                  name="Ramesh K."
+                  size="sm"
+                  className="border border-amber-400 shrink-0"
                 />
                 <div>
                   <span className="font-bold text-white block text-xs">Ramesh K.</span>

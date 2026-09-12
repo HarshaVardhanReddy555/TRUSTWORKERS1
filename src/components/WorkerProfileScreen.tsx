@@ -1,29 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { ScreenId, WorkerProfile } from '../types';
-import { getWorkers } from '../lib/supabaseService';
+import { getWorkers, saveWorkerToSupabase } from '../lib/supabaseService';
+import { TrustScoreBadge } from './TrustScoreBadge';
+import { AvatarUpload } from './AvatarUpload';
 
 interface WorkerProfileScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenChat: (partnerName: string) => void;
   onBookWorker: () => void;
+  worker?: WorkerProfile;
+  onUpdateWorker?: (worker: WorkerProfile) => void;
 }
 
 export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
   setCurrentScreen,
   onOpenChat,
   onBookWorker,
+  worker: propWorker,
+  onUpdateWorker,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'reviews' | 'coop'>('overview');
-  const [worker, setWorker] = useState<WorkerProfile | null>(null);
+  const [worker, setWorker] = useState<WorkerProfile | null>(propWorker || null);
+
+  useEffect(() => {
+    if (propWorker) {
+      setWorker(propWorker);
+    }
+  }, [propWorker]);
+
+  const handleAvatarUpdate = async (newUrl: string) => {
+    if (!currentWorker) return;
+    const updated: WorkerProfile = {
+      ...currentWorker,
+      avatarUrl: newUrl,
+    };
+    setWorker(updated);
+    try {
+      const persisted = await saveWorkerToSupabase(updated);
+      setWorker(persisted);
+      if (onUpdateWorker) {
+        onUpdateWorker(persisted);
+      }
+    } catch (err) {
+      console.warn('Error persisting worker avatar:', err);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
     async function loadWorker() {
       try {
-        const workers = await getWorkers();
-        if (isMounted && workers.length > 0) {
-          const lead = workers.find((w) => w.isTeamLead) || workers[0];
-          setWorker(lead);
+        if (!propWorker) {
+          const workers = await getWorkers();
+          if (isMounted && workers.length > 0) {
+            const lead = workers.find((w) => w.isTeamLead) || workers[0];
+            setWorker(lead);
+          }
         }
       } catch (err) {
         console.warn('Error loading worker profile from Supabase:', err);
@@ -33,7 +65,7 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [propWorker]);
 
   const currentWorker = worker;
 
@@ -51,7 +83,13 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Profile link copied: https://trustworkers.coop/p/ravi-kumar')}
+            onClick={() =>
+              alert(
+                `Profile link copied: https://trustworkers.coop/p/${(currentWorker?.name || 'technician')
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')}`
+              )
+            }
             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00342b] py-2 px-3.5 rounded-xl border border-[#e3e3de] bg-white hover:bg-slate-50 transition-colors"
           >
             <span className="material-symbols-outlined text-base">share</span>
@@ -69,15 +107,17 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
                 Member Owner #TW-9482
               </div>
 
-              <div className="relative inline-block mx-auto mt-2">
-                <img
-                  src={currentWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                  alt={currentWorker?.name || 'Ravi Kumar'}
-                  className="w-24 h-24 rounded-3xl object-cover border-2 border-emerald-600 shadow-sm mx-auto"
+              <div className="relative flex flex-col items-center justify-center mx-auto mt-2">
+                <AvatarUpload
+                  currentAvatarUrl={currentWorker?.avatarUrl}
+                  name={currentWorker?.name || 'Ravi Kumar'}
+                  userId={currentWorker?.id || currentWorker?.phone || 'worker'}
+                  userType="worker"
+                  size="xl"
+                  label=""
+                  subLabel=""
+                  onUploadComplete={handleAvatarUpdate}
                 />
-                <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-lg p-1 rounded-full shadow">
-                  verified
-                </span>
               </div>
 
               <div>
@@ -87,12 +127,13 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
                 <p className="text-xs text-[#707975] mt-0.5">{currentWorker?.title || 'Master Electrician & Wireman'}</p>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-[#835500]">
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-[#835500]">
                 <div className="flex items-center gap-1 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200">
                   <span className="material-symbols-outlined text-base">star</span>
                   <span className="font-bold">{currentWorker?.rating || 4.96}</span>
                   <span className="text-slate-400 font-normal">({currentWorker?.reviewsCount || 412})</span>
                 </div>
+                {currentWorker && <TrustScoreBadge worker={currentWorker} variant="compact" />}
                 <span className="text-slate-300">•</span>
                 <span className="text-slate-600">{currentWorker?.experienceYears || 12} Years Experience</span>
                 <span className="text-slate-300">•</span>
@@ -131,6 +172,11 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Prominent Full Cooperative Trust Score Breakdown */}
+            {currentWorker && (
+              <TrustScoreBadge worker={currentWorker} variant="full" defaultExpanded={true} />
+            )}
 
             {/* Statutory Cooperative Verification Card */}
             <div className="bg-emerald-50/60 rounded-3xl border border-emerald-200 p-5 space-y-3 text-xs">
@@ -234,10 +280,10 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
                 <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs text-xs space-y-3">
                   <h3 className="font-bold text-base text-[#1a1c19]">Professional Background & Mandal Roots</h3>
                   <p className="text-[#3f4945] leading-relaxed text-sm">
-                    7 years of verified on-ground electrical and sanitary plumbing experience across Undi, Bhimavaram, and neighboring mandals. Specializing in 3-phase agricultural pump wiring, home inverter configurations, submersible motor rewinding, and domestic pipeline leak diagnostics.
+                    {currentWorker?.experienceYears || 5} years of verified on-ground {currentWorker?.trade ? currentWorker.trade.toLowerCase() : 'technical'} experience across {currentWorker?.cluster || 'Undi Mandal'} and neighboring regions. Dedicated to fair pricing, transparent diagnostic assessments, and professional cooperative standards.
                   </p>
                   <p className="text-[#3f4945] leading-relaxed text-sm">
-                    Ravi has been an active voting equity partner in the West Godavari Technicians Cooperative since 2021, upholding the co-op's ethical consumer service charter.
+                    {currentWorker?.name || 'Technician'} has been an active voting equity partner in the West Godavari Technicians Cooperative, upholding the co-op's ethical consumer service charter.
                   </p>
                 </div>
               </div>
@@ -312,7 +358,7 @@ export const WorkerProfileScreen: React.FC<WorkerProfileScreenProps> = ({
               <div className="bg-[#fffbeb] rounded-3xl border border-[#ffaa14]/50 p-6 shadow-2xs space-y-3 text-xs text-[#694300]">
                 <h3 className="font-bold text-base text-[#2a1800]">Cooperative Equity & Governance Share</h3>
                 <p className="text-xs leading-relaxed">
-                  Ravi Kumar holds 12 voting shares in the TrustWorkers Cooperative Society Ltd. (Registration No. AP-COOP-2023-904).
+                  {currentWorker?.name || 'Technician'} holds 12 voting shares in the TrustWorkers Cooperative Society Ltd. (Registration No. AP-COOP-2023-904).
                 </p>
                 <div className="bg-white/90 p-4 rounded-2xl border border-amber-200 space-y-2 text-xs">
                   <div><strong>Annual Dividend Payout:</strong> ₹14,200 (FY 2023-24)</div>

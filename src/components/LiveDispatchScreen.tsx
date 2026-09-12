@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, ScreenId, TeamProfile, WorkerProfile } from '../types';
 import { getTeamProfile, getWorkers } from '../lib/supabaseService';
+import { TrustScoreBadge } from './TrustScoreBadge';
+import { UserAvatar } from './UserAvatar';
 
 interface LiveDispatchScreenProps {
-  booking: Booking;
+  booking: Booking | null;
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenLiveTracking: () => void;
   onOpenChat: (workerName: string) => void;
@@ -20,6 +22,24 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
   onOpenChat,
   onUpdateBookingStatus,
 }) => {
+  if (!booking) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-[#00342b] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 className="text-xl font-bold font-display text-[#00342b] mb-2">Setting up your dispatch...</h2>
+        <p className="text-xs text-[#707975] max-w-sm mb-6">
+          Please wait while we connect your service request with our cooperative artisan guild.
+        </p>
+        <button
+          onClick={() => setCurrentScreen('customer-home')}
+          className="px-5 py-2.5 bg-[#00342b] text-white rounded-xl text-xs font-bold shadow-xs hover:bg-[#004d40]"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
   const isTeam = (booking?.workerCount || 1) > 1;
   const [partner2Assigned, setPartner2Assigned] = useState<boolean>(booking?.status !== 'searching');
   const [countdown, setCountdown] = useState<number>(12);
@@ -172,16 +192,12 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <img
-                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                          alt={leadWorker?.name || 'Ravi Kumar'}
-                          className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
-                        />
-                        <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
-                          verified
-                        </span>
-                      </div>
+                      <UserAvatar
+                        avatarUrl={leadWorker?.avatarUrl}
+                        name={leadWorker?.name || 'Ravi Kumar'}
+                        size="lg"
+                        className="border-2 border-emerald-600/40"
+                      />
 
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -200,6 +216,9 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                             <span className="material-symbols-outlined text-sm">star</span>
                             <span>{teamProfile?.rating || 4.94} ({teamProfile?.reviewsCount || 520} reviews)</span>
                           </span>
+                          {leadWorker && (
+                            <TrustScoreBadge worker={leadWorker} variant="compact" />
+                          )}
                           <span>•</span>
                           <span>{teamProfile?.totalMembers || 5} Members in Guild</span>
                           <span>•</span>
@@ -240,10 +259,11 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
-                        <img
-                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                          alt={leadWorker?.name || 'Ravi Kumar'}
-                          className="w-9 h-9 rounded-xl object-cover border border-emerald-600"
+                        <UserAvatar
+                          avatarUrl={leadWorker?.avatarUrl}
+                          name={leadWorker?.name || 'Ravi Kumar'}
+                          size="md"
+                          className="border border-emerald-600 shrink-0"
                         />
                         <div className="overflow-hidden min-w-0">
                           <span className="text-xs font-bold text-[#1a1c19] block truncate">
@@ -256,10 +276,11 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
-                        <img
-                          src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
-                          alt={secondWorker?.name || 'Suresh Varma'}
-                          className="w-9 h-9 rounded-xl object-cover border border-slate-300"
+                        <UserAvatar
+                          avatarUrl={secondWorker?.avatarUrl}
+                          name={secondWorker?.name || 'Suresh Varma'}
+                          size="md"
+                          className="border border-slate-300 shrink-0"
                         />
                         <div className="overflow-hidden min-w-0">
                           <span className="text-xs font-bold text-[#1a1c19] block truncate">
@@ -273,10 +294,11 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                       {(booking.workerCount || 1) >= 3 && (
                         <div className="flex items-center gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 sm:col-span-2">
-                          <img
-                            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80"
-                            alt="Mohan Rao"
-                            className="w-9 h-9 rounded-xl object-cover border border-slate-300"
+                          <UserAvatar
+                            avatarUrl=""
+                            name="Mohan Rao"
+                            size="md"
+                            className="border border-slate-300 shrink-0"
                           />
                           <div className="overflow-hidden min-w-0">
                             <span className="text-xs font-bold text-[#1a1c19] block truncate">
@@ -342,10 +364,11 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <img
-                        src={secondWorker?.avatarUrl || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80'}
-                        alt={secondWorker?.name || 'Suresh Varma'}
-                        className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200"
+                      <UserAvatar
+                        avatarUrl={secondWorker?.avatarUrl}
+                        name={secondWorker?.name || 'Suresh Varma'}
+                        size="lg"
+                        className="border-2 border-slate-200"
                       />
                       <div>
                         <div className="flex items-center gap-2">
@@ -355,11 +378,14 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                           </span>
                         </div>
                         <p className="text-xs text-[#707975]">Electrical & General Repairs • Bhimavaram Town</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold">
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[#3f4945] font-semibold flex-wrap">
                           <span className="flex items-center gap-0.5 text-[#835500]">
                             <span className="material-symbols-outlined text-sm">star</span>
                             <span>{secondWorker?.rating || 4.88} ({secondWorker?.reviewsCount || 380} reviews)</span>
                           </span>
+                          {secondWorker && (
+                            <TrustScoreBadge worker={secondWorker} variant="compact" />
+                          )}
                           <span>•</span>
                           <span>4.2 km away • Reserve Unit</span>
                         </div>
@@ -386,16 +412,12 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <img
-                          src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-                          alt={leadWorker?.name || 'Ravi Kumar'}
-                          className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600/40"
-                        />
-                        <span className="material-symbols-outlined absolute -bottom-1 -right-1 bg-emerald-600 text-white text-xs p-1 rounded-full">
-                          verified
-                        </span>
-                      </div>
+                      <UserAvatar
+                        avatarUrl={leadWorker?.avatarUrl}
+                        name={leadWorker?.name || 'Ravi Kumar'}
+                        size="lg"
+                        className="border-2 border-emerald-600/40"
+                      />
 
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -408,6 +430,9 @@ export const LiveDispatchScreen: React.FC<LiveDispatchScreenProps> = ({
                             <span className="material-symbols-outlined text-sm">star</span>
                             <span>{leadWorker?.rating || 4.96} ({leadWorker?.reviewsCount || 412} reviews)</span>
                           </span>
+                          {leadWorker && (
+                            <TrustScoreBadge worker={leadWorker} variant="compact" />
+                          )}
                           <span>•</span>
                           <span>{leadWorker?.experienceYears || 12} Yrs Exp</span>
                           <span>•</span>

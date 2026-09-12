@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { ScreenId, TeamMember, AvailabilityStatus, WorkerProfile, TeamProfile } from '../types';
+import { ScreenId, TeamMember, AvailabilityStatus, WorkerProfile, TeamProfile, Booking } from '../types';
 import {
   getWorkers,
   getTeamProfile,
   getTeamMembers,
   updateMemberAvailability,
+  getBookingsForWorker,
 } from '../lib/supabaseService';
+import { UserAvatar } from './UserAvatar';
 
 interface WorkerHomeScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenChat: (partnerName: string) => void;
+  worker?: WorkerProfile;
 }
 
 export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
   setCurrentScreen,
   onOpenChat,
+  worker,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'team'>('profile');
   const [isOnDuty, setIsOnDuty] = useState(true);
@@ -23,9 +27,16 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
   const [startOtpInput, setStartOtpInput] = useState('');
   const [jobStarted, setJobStarted] = useState(false);
 
-  const [currentWorker, setCurrentWorker] = useState<WorkerProfile | null>(null);
+  const [currentWorker, setCurrentWorker] = useState<WorkerProfile | null>(worker || null);
   const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [workerBookings, setWorkerBookings] = useState<Booking[]>([]);
+
+  useEffect(() => {
+    if (worker) {
+      setCurrentWorker(worker);
+    }
+  }, [worker]);
 
   useEffect(() => {
     let isMounted = true;
@@ -36,14 +47,16 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
           getTeamProfile(),
           getTeamMembers(),
         ]);
+        const lead = currentWorker || worker || (workersData.find((w) => w.isTeamLead) || workersData[0]);
+        const assignedBookings = lead?.id ? await getBookingsForWorker(lead.id) : [];
+
         if (isMounted) {
-          if (workersData.length > 0) {
-            // Pick team lead worker or first worker
-            const lead = workersData.find((w) => w.isTeamLead) || workersData[0];
+          if (!worker && workersData.length > 0) {
             setCurrentWorker(lead);
           }
           setTeamProfile(teamData);
           setTeamMembers(membersData);
+          setWorkerBookings(assignedBookings);
         }
       } catch (err) {
         console.warn('Error fetching worker home data from Supabase:', err);
@@ -53,7 +66,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [worker, currentWorker?.id]);
 
   const leadWorker = currentWorker || teamProfile?.teamLead;
   const availableCount = teamMembers.filter((m) => m.availability === 'Available').length;
@@ -147,17 +160,18 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
         {/* Top Worker Control Header */}
         <div className="bg-white rounded-3xl border border-[#e3e3de] p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img
-              src={leadWorker?.avatarUrl || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=240&auto=format&fit=crop&q=80'}
-              alt={leadWorker?.name || 'Ravi Kumar'}
-              className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-600 shadow-2xs"
+            <UserAvatar
+              avatarUrl={leadWorker?.avatarUrl}
+              name={leadWorker?.name || 'Worker Member'}
+              size="lg"
+              className="border-2 border-emerald-600 shadow-2xs"
             />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-bold text-lg text-[#1a1c19]">{leadWorker?.name || 'Ravi Kumar'}</h1>
+                <h1 className="font-bold text-lg text-[#1a1c19]">{leadWorker?.name || 'Partner Member'}</h1>
                 <span className="material-symbols-outlined text-emerald-600 text-lg">verified</span>
                 <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
-                  Lead Certified Partner
+                  {leadWorker?.title || 'Lead Certified Partner'}
                 </span>
               </div>
               <p className="text-xs text-[#707975] flex items-center gap-1 mt-0.5">

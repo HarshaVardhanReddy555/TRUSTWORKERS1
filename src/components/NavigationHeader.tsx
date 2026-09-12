@@ -1,5 +1,5 @@
 import React from 'react';
-import { CustomerProfile, ScreenId, UserRole } from '../types';
+import { CustomerProfile, ScreenId, UserRole, WorkerProfile } from '../types';
 import { CustomerAvatar } from './CustomerAvatar';
 
 interface NavigationHeaderProps {
@@ -8,6 +8,7 @@ interface NavigationHeaderProps {
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   customer?: CustomerProfile;
+  worker?: WorkerProfile;
   onOpenNotifications?: () => void;
   unreadCount?: number;
 }
@@ -18,6 +19,7 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   userRole,
   setUserRole,
   customer,
+  worker,
   unreadCount = 2,
 }) => {
   const isLoggedIn = !['welcome', 'login', 'register-customer', 'register-worker'].includes(currentScreen);
@@ -208,7 +210,7 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
                 )}
               </button>
 
-              {/* Profile Icon Avatar & Name Pill: displays dynamic customer name or Ravi Kumar when worker */}
+              {/* Profile Icon Avatar & Name Pill: displays dynamic customer name or dynamic worker name */}
               <button
                 onClick={() => {
                   if (userRole === 'worker') setCurrentScreen('worker-profile');
@@ -218,22 +220,36 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
                 title="View Profile"
               >
                 {userRole === 'worker' ? (
-                  <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
-                    <img
-                      src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=120&auto=format&fit=crop&q=80"
-                      alt="Ravi Kumar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  worker?.avatarUrl ? (
+                    <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
+                      <img
+                        src={worker.avatarUrl}
+                        alt={worker.name || 'Worker Member'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <CustomerAvatar name={worker?.name || 'Worker'} size="sm" />
+                  )
                 ) : (
-                  <CustomerAvatar name={customer?.name || 'Customer'} size="sm" />
+                  customer?.avatarUrl ? (
+                    <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
+                      <img
+                        src={customer.avatarUrl}
+                        alt={customer.name || 'Citizen Member'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <CustomerAvatar name={customer?.name || 'Customer'} size="sm" />
+                  )
                 )}
                 <div className="text-left hidden sm:block">
                   <span className="block text-xs font-bold leading-tight">
-                    {userRole === 'worker' ? 'Ravi Kumar' : customer?.name || 'Citizen Member'}
+                    {userRole === 'worker' ? worker?.name || 'Partner Member' : customer?.name || 'Citizen Member'}
                   </span>
                   <span className="text-[10px] text-emerald-300 leading-none">
-                    {userRole === 'worker' ? 'Master Electrician' : 'Citizen Member'}
+                    {userRole === 'worker' ? worker?.title || 'Cooperative Technician' : 'Citizen Member'}
                   </span>
                 </div>
               </button>

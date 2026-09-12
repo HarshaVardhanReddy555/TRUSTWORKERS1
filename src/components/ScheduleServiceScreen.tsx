@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, CustomerProfile, ScreenId, ServiceItem, WorkerProfile } from '../types';
 import { getServices, getWorkers, generateUUID } from '../lib/supabaseService';
+import { TrustScoreBadge } from './TrustScoreBadge';
 
 interface ScheduleServiceScreenProps {
   selectedService?: ServiceItem | null;
@@ -331,6 +332,40 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
                   </span>
                 </div>
               )}
+
+              {/* Standby Specialists Preview with Trust Score */}
+              {availableWorkers.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <span className="text-[10px] font-bold text-[#707975] uppercase tracking-wider block">
+                    Available Co-op Specialists in Cluster
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {availableWorkers.slice(0, Math.min(2, Math.max(1, workerCount))).map((w) => (
+                      <div
+                        key={w.id}
+                        className="flex items-center justify-between p-2.5 bg-[#fafaf5] rounded-xl border border-[#e3e3de] gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={w.avatarUrl}
+                            alt={w.name}
+                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-[#1a1c19] block truncate">
+                              {w.name}
+                            </span>
+                            <span className="text-[10px] text-[#707975] block truncate">
+                              {w.title}
+                            </span>
+                          </div>
+                        </div>
+                        <TrustScoreBadge worker={w} variant="compact" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Date & Arrival Slot */}
@@ -459,23 +494,38 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
 
               {/* Photo Upload Zone */}
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAttachedPhoto(
-                      attachedPhoto
-                        ? null
-                        : 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&auto=format&fit=crop&q=80'
-                    )
-                  }
-                  className="px-4 py-2.5 rounded-xl border border-[#bfc9c4] hover:border-[#00342b] bg-[#fafaf5] text-xs font-bold text-[#00342b] flex items-center gap-2 transition-colors"
-                >
+                <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-[#bfc9c4] hover:border-[#00342b] bg-[#fafaf5] text-xs font-bold text-[#00342b] flex items-center gap-2 transition-colors">
                   <span className="material-symbols-outlined text-base">photo_camera</span>
-                  <span>{attachedPhoto ? 'Remove Attached Photo' : 'Attach Photo of Issue'}</span>
-                </button>
+                  <span>{attachedPhoto ? 'Change Issue Photo' : 'Attach Photo of Issue'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          setAttachedPhoto(evt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
                 {attachedPhoto && (
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-500 shadow-2xs">
-                    <img src={attachedPhoto} alt="Issue preview" className="w-full h-full object-cover" />
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-500 shadow-2xs">
+                      <img src={attachedPhoto} alt="Issue preview" className="w-full h-full object-cover" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedPhoto(null)}
+                      className="text-xs text-rose-600 hover:text-rose-700 font-semibold p-1"
+                      title="Remove Photo"
+                    >
+                      Remove
+                    </button>
                   </div>
                 )}
               </div>

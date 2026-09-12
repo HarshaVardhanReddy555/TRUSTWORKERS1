@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CustomerProfile, ScreenId, UserRole } from '../types';
 import { saveCustomerToSupabase } from '../lib/supabaseService';
+import { AvatarUpload } from './AvatarUpload';
 
 interface RegisterCustomerScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
@@ -13,6 +14,7 @@ export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
   setUserRole,
   onRegisterSuccess,
 }) => {
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
@@ -38,6 +40,7 @@ export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
         name: fullName.trim() || 'Citizen Member',
         phone: mobile.trim() || '+91 98765 43210',
         email: email.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || undefined,
       });
       if (onRegisterSuccess) {
         onRegisterSuccess(saved);
@@ -158,6 +161,18 @@ export const RegisterCustomerScreen: React.FC<RegisterCustomerScreenProps> = ({
                 <span className="text-xs font-bold uppercase tracking-wider text-[#00342b] block pb-1 border-b border-slate-100">
                   1. Contact Information
                 </span>
+
+                {/* Profile Photo Upload */}
+                <div className="pb-3 border-b border-[#e3e3de]/60">
+                  <AvatarUpload
+                    currentAvatarUrl={avatarUrl}
+                    name={fullName}
+                    userType="customer"
+                    onUploadComplete={(url) => setAvatarUrl(url)}
+                    label="Citizen Profile Photo"
+                    subLabel="Upload a photo for technician identification upon arrival"
+                  />
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
