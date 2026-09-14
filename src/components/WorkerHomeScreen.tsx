@@ -613,7 +613,7 @@ export const WorkerHomeScreen: React.FC<WorkerHomeScreenProps> = ({
                       <div className="flex items-center gap-4 min-w-[280px]">
                         <div className="relative shrink-0">
                           <img
-                            src={member.avatarUrl}
+                            src={member.avatarUrl || undefined}
                             alt={member.name}
                             className="w-12 h-12 rounded-2xl object-cover border border-[#e3e3de] shadow-2xs"
                           />

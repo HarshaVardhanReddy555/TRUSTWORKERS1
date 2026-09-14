@@ -36,10 +36,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleTabChange = (role: 'customer' | 'worker') => {
     setActiveTab(role);
     setUserRole(role);
+    setValidationError(null);
     if (role === 'worker') {
       setIdentifier('ravi.electrician.undi@gmail.com');
     } else {
@@ -48,8 +50,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const currentIdentifier = identifier.trim();
+    console.log('=== HANDLE LOGIN SUBMITTED === Current identifier state:', currentIdentifier);
+
+    if (!currentIdentifier) {
+      setValidationError('Please enter a mobile number or email.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (currentIdentifier.includes('@')) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(currentIdentifier)) {
+        setValidationError('Please enter a complete email (e.g. name@example.com).');
+        setIsLoading(false);
+        return;
+      }
+    } else {
+      const digitsOnly = currentIdentifier.replace(/[^0-9]/g, '');
+      if (digitsOnly.length < 10) {
+        setValidationError('Please enter a valid mobile number with at least 10 digits.');
+        setIsLoading(false);
+        return;
+      }
+    }
+    setValidationError(null);
+
     setIsLoading(true);
 
     try {
@@ -344,9 +372,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <input
                 type="text"
                 value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={(e) => {
+                  setIdentifier(e.target.value);
+                  if (validationError) setValidationError(null);
+                }}
                 required
-                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[#bfc9c4] text-xs font-medium text-[#1a1c19] focus:outline-none focus:border-[#00342b] focus:ring-1 focus:ring-[#00342b]"
+                className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-xs font-medium text-[#1a1c19] focus:outline-none focus:ring-1 ${
+                  validationError
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-[#bfc9c4] focus:border-[#00342b] focus:ring-[#00342b]'
+                }`}
                 placeholder={
                   activeTab === 'worker'
                     ? 'ravi.electrician.undi@gmail.com or 9848023145'
@@ -354,6 +389,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 }
               />
             </div>
+            {validationError && (
+              <p className="text-[11px] text-red-600 mt-1 font-medium flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs">error</span>
+                <span>{validationError}</span>
+              </p>
+            )}
           </div>
 
           {/* Password */}

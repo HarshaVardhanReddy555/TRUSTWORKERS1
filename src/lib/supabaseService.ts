@@ -558,7 +558,7 @@ export async function getBookingHistoryForCustomer(
   customerPhone?: string
 ): Promise<Booking[]> {
   if (!isSupabaseConfigured || (!customerId && !customerPhone)) {
-    return INITIAL_BOOKINGS;
+    return [];
   }
 
   try {
@@ -1042,13 +1042,56 @@ export async function saveCustomerToSupabase(customer: {
   avatarUrl?: string;
   avatar_url?: string;
 }): Promise<CustomerProfile> {
-  const normalizedPhone = customer.phone?.trim() || '+91 98765 43210';
+  const emailTrimmed = customer.email?.trim() || undefined;
+  const rawCleanPhone = customer.phone?.replace(/[^0-9]/g, '') || '';
+  const isValidPhone = rawCleanPhone.length >= 10 || customer.phone?.trim().startsWith('+');
+  const normalizedPhone = isValidPhone ? customer.phone.trim() : null;
+  const last10Phone = rawCleanPhone.length >= 10 ? rawCleanPhone.slice(-10) : '';
+
   const avatarUrl = (customer.avatarUrl || customer.avatar_url || '').trim();
+
+  let existingCustomerId = customer.id;
+  let existingPhone = normalizedPhone || '+91 98765 43210';
+
+  if (isSupabaseConfigured) {
+    try {
+      // 1. Check for existing match by EMAIL first (if an email was provided)
+      if (emailTrimmed) {
+        const { data: emailRows } = await supabase
+          .from('customers')
+          .select('*')
+          .ilike('email', emailTrimmed)
+          .limit(1);
+        if (emailRows && emailRows.length > 0) {
+          existingCustomerId = emailRows[0].id;
+          if (emailRows[0].phone) {
+            existingPhone = emailRows[0].phone; // preserve existing valid phone
+          }
+        }
+      }
+
+      // 2. Only use phone-based matching as a fallback when no email was provided at all
+      if (!existingCustomerId && !emailTrimmed && last10Phone.length >= 10) {
+        const { data: phoneRows } = await supabase
+          .from('customers')
+          .select('*')
+          .or(`phone.ilike.%${last10Phone}%`)
+          .limit(1);
+        if (phoneRows && phoneRows.length > 0) {
+          existingCustomerId = phoneRows[0].id;
+          existingPhone = phoneRows[0].phone;
+        }
+      }
+    } catch (err) {
+      console.warn('Error checking existing customer during save:', err);
+    }
+  }
+
   const customerObj: CustomerProfile = {
-    id: customer.id || generateUUID(),
+    id: existingCustomerId || customer.id || generateUUID(),
     name: customer.name.trim(),
-    phone: normalizedPhone,
-    email: customer.email?.trim() || undefined,
+    phone: existingPhone,
+    email: emailTrimmed,
     avatarUrl: avatarUrl || undefined,
   };
 
@@ -1062,60 +1105,23 @@ export async function saveCustomerToSupabase(customer: {
         avatar_url: avatarUrl || null,
       };
 
-      // Upsert customer into the customers table on conflict (phone)
+      // Upsert customer into the customers table on conflict (id)
       const { data, error } = await supabase
         .from('customers')
-        .upsert(payload, { onConflict: 'phone' })
+        .upsert(payload, { onConflict: 'id' })
         .select()
         .single();
 
       if (error) {
-        console.warn('Supabase saveCustomerToSupabase warning:', error.message);
-        // Fallback: if table doesn't have avatar_url yet, retry without it
-        delete payload.avatar_url;
-        const { data: retryData, error: retryErr } = await supabase
+        console.warn('Supabase saveCustomerToSupabase upsert warning:', error.message);
+        // Fallback upsert on phone or update by id
+        const { error: updateErr } = await supabase
           .from('customers')
-          .upsert(payload, { onConflict: 'phone' })
-          .select()
-          .single();
+          .update(payload)
+          .eq('id', customerObj.id);
 
-        if (!retryErr && retryData) {
-          customerObj.id = retryData.id;
-          customerObj.name = retryData.name;
-          customerObj.phone = retryData.phone;
-          customerObj.email = retryData.email || undefined;
-          if (retryData.avatar_url) {
-            customerObj.avatarUrl = retryData.avatar_url;
-          }
-        } else {
-          // Fallback: check if existing customer with same phone exists and update name/email
-          const { data: searchRow } = await supabase
-            .from('customers')
-            .select('*')
-            .eq('phone', customerObj.phone)
-            .maybeSingle();
-
-          if (searchRow) {
-            const updatePayload: Record<string, any> = {
-              name: customerObj.name,
-              email: customerObj.email || null,
-            };
-            if (avatarUrl) updatePayload.avatar_url = avatarUrl;
-
-            const { error: updErr } = await supabase
-              .from('customers')
-              .update(updatePayload)
-              .eq('id', searchRow.id);
-
-            if (updErr && updErr.message.includes('avatar_url')) {
-              delete updatePayload.avatar_url;
-              await supabase
-                .from('customers')
-                .update(updatePayload)
-                .eq('id', searchRow.id);
-            }
-            customerObj.id = searchRow.id;
-          }
+        if (updateErr && customerObj.phone) {
+          await supabase.from('customers').upsert(payload, { onConflict: 'phone' });
         }
       } else if (data) {
         customerObj.id = data.id;
@@ -1141,30 +1147,66 @@ export async function saveCustomerToSupabase(customer: {
 export async function getCustomerByIdentifier(identifier: string): Promise<CustomerProfile | null> {
   if (!identifier?.trim()) return null;
   const clean = identifier.trim();
+  console.log('getCustomerByIdentifier searching for:', identifier, 'cleaned:', clean);
 
   if (!isSupabaseConfigured) {
     return null;
   }
 
   try {
-    let query = supabase.from('customers').select('*');
+    let row: any = null;
+
+    // If identifier contains "@", ALWAYS match by email first (case-insensitive exact match)
     if (clean.includes('@')) {
-      query = query.eq('email', clean);
-    } else if (/^[+0-9\s-]+$/.test(clean)) {
-      query = query.eq('phone', clean);
-    } else {
-      query = query.ilike('name', clean);
+      const { data: emailData, error: emailError } = await supabase
+        .from('customers')
+        .select('*')
+        .ilike('email', clean.toLowerCase())
+        .limit(1);
+
+      if (!emailError && emailData && emailData.length > 0) {
+        row = emailData[0];
+      }
     }
 
-    const { data, error } = await query.maybeSingle();
-    if (!error && data) {
-      return {
-        id: data.id,
-        name: data.name,
-        phone: data.phone,
-        email: data.email || undefined,
-        avatarUrl: data.avatar_url || undefined,
+    // Only fall back to phone/name matching if no email match exists
+    if (!row) {
+      if (/^[+0-9\s()-]+$/.test(clean)) {
+        const digits = clean.replace(/[^0-9]/g, '');
+        const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        const { data: phoneData } = await supabase
+          .from('customers')
+          .select('*')
+          .or(`phone.eq.${clean},phone.ilike.%${last10}%,phone.eq.${digits}`)
+          .limit(1);
+        if (phoneData && phoneData.length > 0) {
+          row = phoneData[0];
+        }
+      } else if (!clean.includes('@')) {
+        const { data: nameData } = await supabase
+          .from('customers')
+          .select('*')
+          .ilike('name', `%${clean}%`)
+          .limit(1);
+        if (nameData && nameData.length > 0) {
+          row = nameData[0];
+        }
+      }
+    }
+
+    if (row) {
+      const profile: CustomerProfile = {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        email: row.email || undefined,
+        avatarUrl: row.avatar_url || undefined,
       };
+      // Keep localStorage synchronized so repeated logins reuse this exact ID
+      try {
+        localStorage.setItem('trustworkers_current_customer', JSON.stringify(profile));
+      } catch (_) {}
+      return profile;
     }
   } catch (err) {
     console.warn('Error fetching customer from Supabase:', err);

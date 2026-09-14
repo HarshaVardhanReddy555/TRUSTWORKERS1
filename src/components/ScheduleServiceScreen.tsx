@@ -116,6 +116,7 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
       workerCount,
       durationHours,
       assignedWorkers: assigned,
+      customerId: customer?.id,
       customerName: customer?.name?.trim() || 'Citizen Member',
       customerPhone: customer?.phone?.trim() || '+91 98765 43210',
       address:
@@ -347,7 +348,7 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
-                            src={w.avatarUrl}
+                            src={w.avatarUrl || undefined}
                             alt={w.name}
                             className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
                           />
@@ -516,7 +517,7 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
                 {attachedPhoto && (
                   <div className="flex items-center gap-2">
                     <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-500 shadow-2xs">
-                      <img src={attachedPhoto} alt="Issue preview" className="w-full h-full object-cover" />
+                      <img src={attachedPhoto || undefined} alt="Issue preview" className="w-full h-full object-cover" />
                     </div>
                     <button
                       type="button"

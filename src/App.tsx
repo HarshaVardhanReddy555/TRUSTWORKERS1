@@ -3,6 +3,7 @@ import { Booking, CustomerProfile, ScreenId, ServiceItem, UserRole, WorkerProfil
 import {
   getServices,
   getActiveBooking,
+  getBookingHistoryForCustomer,
   createBookingInSupabase,
   updateBookingStatusInSupabase,
 } from './lib/supabaseService';
@@ -31,8 +32,15 @@ export function App() {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
+  const [bookingHistory, setBookingHistory] = useState<Booking[]>([]);
   const [chatPartnerName, setChatPartnerName] = useState<string>('Ravi Kumar');
-  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('trustworkers_current_customer');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return null;
+  });
   const [workerProfile, setWorkerProfile] = useState<WorkerProfile>(() => {
     try {
       const saved = localStorage.getItem('trustworkers_current_worker');
@@ -68,24 +76,32 @@ export function App() {
     };
   }, []);
 
-  // Load active booking scoped to logged-in customer profile
+  // Load active booking and booking history scoped to logged-in customer profile
   useEffect(() => {
     let isMounted = true;
-    async function loadCustomerActiveBooking() {
+    async function loadCustomerBookingsAndHistory() {
       if (!customerProfile?.id && !customerProfile?.phone) {
-        if (isMounted) setActiveBooking(null);
+        if (isMounted) {
+          setActiveBooking(null);
+          setBookingHistory([]);
+        }
         return;
       }
       try {
-        const booking = await getActiveBooking(customerProfile?.id, customerProfile?.phone);
+        const [active, history] = await Promise.all([
+          getActiveBooking(customerProfile?.id, customerProfile?.phone),
+          getBookingHistoryForCustomer(customerProfile?.id, customerProfile?.phone),
+        ]);
+        console.log('App.tsx loaded customer data:', { customer: customerProfile, active, history });
         if (isMounted) {
-          setActiveBooking(booking);
+          setActiveBooking(active);
+          setBookingHistory(history || []);
         }
       } catch (err) {
-        console.warn('Error loading active booking for customer:', err);
+        console.warn('Error loading customer bookings and history in App.tsx:', err);
       }
     }
-    loadCustomerActiveBooking();
+    loadCustomerBookingsAndHistory();
     return () => {
       isMounted = false;
     };
@@ -321,6 +337,7 @@ export function App() {
             setCurrentScreen={setCurrentScreen}
             onOpenLiveTracking={() => setCurrentScreen('live-tracking')}
             customer={customerProfile}
+            bookingHistory={bookingHistory}
           />
         )}
 

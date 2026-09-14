@@ -7,6 +7,7 @@ interface CustomerBookingsScreenProps {
   setCurrentScreen: (screen: ScreenId) => void;
   onOpenLiveTracking: () => void;
   customer?: CustomerProfile | null;
+  bookingHistory?: Booking[];
 }
 
 export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
@@ -14,79 +15,61 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
   setCurrentScreen,
   onOpenLiveTracking,
   customer,
+  bookingHistory,
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
-  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
-  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+  const [fetchedBookings, setFetchedBookings] = useState<Booking[]>([]);
 
   useEffect(() => {
     let isMounted = true;
+    async function loadTeam() {
+      const teamData = await getTeamProfile();
+      if (isMounted && teamData) setTeamProfile(teamData);
+    }
+    loadTeam();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bookingHistory !== undefined) {
+      setFetchedBookings(bookingHistory);
+      return;
+    }
+    let isMounted = true;
     async function loadData() {
       try {
-        const [bookingsData, teamData] = await Promise.all([
-          getBookingHistoryForCustomer(customer?.id || '', customer?.phone || ''),
-          getTeamProfile(),
-        ]);
+        const bookingsData = await getBookingHistoryForCustomer(customer?.id || '', customer?.phone || '');
+        console.log('CustomerBookingsScreen fetched raw bookings:', bookingsData, 'for customer:', customer);
         if (isMounted) {
-          setLiveBookings(bookingsData);
-          setTeamProfile(teamData);
+          setFetchedBookings(bookingsData);
         }
       } catch (err) {
         console.warn('Error loading bookings from Supabase:', err);
-      } finally {
-        if (isMounted) {
-          setIsLoadingBookings(false);
-        }
       }
     }
     loadData();
     return () => {
       isMounted = false;
     };
-  }, [customer?.id, customer?.phone]);
+  }, [bookingHistory, customer?.id, customer?.phone]);
+
+  const liveBookings = bookingHistory !== undefined ? bookingHistory : fetchedBookings;
+  console.log('CustomerBookingsScreen rendering with raw bookings:', liveBookings, 'for customer:', customer);
 
   const completedLiveBookings = liveBookings.filter((b) => b.status === 'completed');
 
-  const pastBookings = completedLiveBookings.length > 0
-    ? completedLiveBookings.map((b) => ({
-        id: b.id.length > 8 ? b.id.slice(0, 8).toUpperCase() : b.id,
-        title: b.serviceName,
-        worker: b.assignedWorkers?.[0]?.name ? `${b.assignedWorkers[0].name} (${b.assignedWorkers[0].title})` : 'Ravi Kumar (Master Electrician)',
-        date: b.completedDate || b.dateStr,
-        paid: `₹${b.paidAmount || b.totalAmount}`,
-        rating: b.ratingGiven || 5,
-        category: b.category,
-      }))
-    : [
-        {
-          id: 'CWS-7210',
-          title: 'Ceiling Fan Installation & Regulator Fix',
-          worker: 'Ramesh K. (Certified Electrician)',
-          date: '12 Aug 2024',
-          paid: '₹250',
-          rating: 5,
-          category: 'Electrical',
-        },
-        {
-          id: 'CWS-6894',
-          title: 'Kitchen Sink Drain Unclogging',
-          worker: 'Suresh V. (Sanitary Specialist)',
-          date: '28 Jul 2024',
-          paid: '₹220',
-          rating: 5,
-          category: 'Plumbing',
-        },
-        {
-          id: 'CWS-5942',
-          title: 'Main MCB Safety Earthing Inspection',
-          worker: 'Ravi Kumar (Lead Electrician)',
-          date: '15 Jul 2024',
-          paid: '₹350',
-          rating: 5,
-          category: 'Electrical',
-        },
-      ];
+  const pastBookings = completedLiveBookings.map((b) => ({
+    id: b.id.length > 8 ? b.id.slice(0, 8).toUpperCase() : b.id,
+    title: b.serviceName,
+    worker: b.assignedWorkers?.[0]?.name ? `${b.assignedWorkers[0].name} (${b.assignedWorkers[0].title})` : 'Assigned Specialist',
+    date: b.completedDate || b.dateStr,
+    paid: `₹${b.paidAmount || b.totalAmount}`,
+    rating: b.ratingGiven || 5,
+    category: b.category,
+  }));
 
   const leadWorker = teamProfile?.teamLead;
   const teamMembersList = teamProfile?.members || [];
@@ -210,7 +193,7 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
                           ).map((w, idx) => (
                             <img
                               key={w.id || idx}
-                              src={w.avatarUrl}
+                              src={w.avatarUrl || undefined}
                               alt={w.name}
                               className={`w-8 h-8 rounded-full ring-2 ${
                                 idx === 0 ? 'ring-emerald-600' : 'ring-white'
@@ -255,7 +238,7 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
                         ).map((w, idx) => (
                           <img
                             key={w.id || idx}
-                            src={w.avatarUrl}
+                            src={w.avatarUrl || undefined}
                             alt={w.name}
                             className={`inline-block h-9 w-9 rounded-full ring-2 ${
                               idx === 0 ? 'ring-emerald-500' : 'ring-white'
@@ -330,47 +313,64 @@ export const CustomerBookingsScreen: React.FC<CustomerBookingsScreenProps> = ({
             </div>
           )
         ) : (
-          /* Completed Bookings Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {pastBookings.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white rounded-3xl border border-[#e3e3de] p-5 shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#00342b] transition-all"
+          /* Completed Bookings Grid or Empty State */
+          pastBookings.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {pastBookings.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-3xl border border-[#e3e3de] p-5 shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#00342b] transition-all"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
+                        #{item.id} • {item.date}
+                      </span>
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
+                        Paid {item.paid}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-sm text-[#1a1c19]">{item.title}</h3>
+                    <p className="text-xs text-[#707975]">{item.worker}</p>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-[#835500] font-bold text-xs">
+                      <span className="material-symbols-outlined text-sm">star</span>
+                      <span>{item.rating}.0 Verified Rating</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        alert(`Re-booking service: ${item.title}`);
+                        setCurrentScreen('schedule-service');
+                      }}
+                      className="text-xs font-bold text-[#00342b] hover:underline flex items-center gap-1"
+                    >
+                      <span>Rebook</span>
+                      <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-lg mx-auto space-y-4">
+              <span className="material-symbols-outlined text-5xl text-slate-300">history</span>
+              <h2 className="font-bold text-base text-[#1a1c19]">You haven't made any bookings yet</h2>
+              <p className="text-xs text-[#707975] max-w-sm mx-auto">
+                Explore our cooperative catalog and book your first verified service with zero surge pricing.
+              </p>
+              <button
+                onClick={() => setCurrentScreen('customer-home')}
+                className="py-3 px-6 bg-[#00342b] hover:bg-[#004d40] text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
-                      #{item.id} • {item.date}
-                    </span>
-                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
-                      Paid {item.paid}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-sm text-[#1a1c19]">{item.title}</h3>
-                  <p className="text-xs text-[#707975]">{item.worker}</p>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-[#835500] font-bold text-xs">
-                    <span className="material-symbols-outlined text-sm">star</span>
-                    <span>{item.rating}.0 Verified Rating</span>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      alert(`Re-booking service: ${item.title}`);
-                      setCurrentScreen('schedule-service');
-                    }}
-                    className="text-xs font-bold text-[#00342b] hover:underline flex items-center gap-1"
-                  >
-                    <span>Rebook</span>
-                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                <span>Browse Cooperative Catalog</span>
+                <span className="material-symbols-outlined text-xs">arrow_forward</span>
+              </button>
+            </div>
+          )
         )}
       </div>
     </div>
