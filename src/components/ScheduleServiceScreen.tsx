@@ -59,8 +59,25 @@ export const ScheduleServiceScreen: React.FC<ScheduleServiceScreenProps> = ({
     };
   }, [selectedService]);
 
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+  
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const dayAfter = new Date();
+  dayAfter.setDate(today.getDate() + 2);
+
+  const fmt = (d: Date) => `${d.getDate()} ${monthNames[d.getMonth()]}`;
+
+  const dynamicDates = [
+    { date: fmt(today), label: 'TODAY', sub: 'Fast Track' },
+    { date: fmt(tomorrow), label: 'TOMORROW', sub: 'Flexible' },
+    { date: fmt(dayAfter), label: weekdays[dayAfter.getDay()], sub: 'Scheduled' },
+  ];
+
   const [workerCount, setWorkerCount] = useState<number>(1);
-  const [selectedDate, setSelectedDate] = useState<string>('05 Sep');
+  const [selectedDate, setSelectedDate] = useState<string>(dynamicDates[0].date);
   const [selectedWindow, setSelectedWindow] = useState<'Morning' | 'Afternoon' | 'Evening'>('Afternoon');
   const [durationHours, setDurationHours] = useState<number>(2);
   const [problemDescription, setProblemDescription] = useState(
@@ -96,6 +113,11 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
           : [availableWorkers[0]]
         : [];
 
+    const matchedDateObj = dynamicDates.find((d) => d.date === selectedDate) || dynamicDates[0];
+    const rawLabel = matchedDateObj.label.toLowerCase();
+    const formattedLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+    const dateStrFormatted = `${formattedLabel}, ${matchedDateObj.date}`;
+
     const newBooking: Booking = {
       id: generateUUID(),
       serviceId: currentService?.id || '',
@@ -106,7 +128,7 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
       status: 'searching',
       stepCurrent: 1,
       paymentStatus: 'pending',
-      dateStr: selectedDate === '05 Sep' ? 'Today, 05 Sep' : selectedDate,
+      dateStr: dateStrFormatted,
       timeWindow:
         selectedWindow === 'Morning'
           ? '9:00 AM - 12:00 PM'
@@ -384,11 +406,7 @@ const hourlyRateCalc = Math.round(baseRate * getWorkerMultiplier(workerCount));
               <div>
                 <span className="text-xs font-bold text-[#707975] block mb-2">Select Date</span>
                 <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { date: '05 Sep', label: 'TODAY', sub: 'Fast Track' },
-                    { date: '06 Sep', label: 'TOMORROW', sub: 'Flexible' },
-                    { date: '07 Sep', label: 'SATURDAY', sub: 'Weekend' },
-                  ].map((d) => (
+                  {dynamicDates.map((d) => (
                     <button
                       key={d.date}
                       type="button"

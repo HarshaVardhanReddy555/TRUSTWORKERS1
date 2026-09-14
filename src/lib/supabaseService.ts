@@ -920,7 +920,12 @@ export async function updateBookingStatusInSupabase(
     if (paymentMethod != null) updates.payment_method = paymentMethod;
     if (ratingGiven != null) updates.rating_given = ratingGiven;
     if (reviewComment != null) updates.review_comment = reviewComment;
-    if (status === 'completed') updates.completed_date = 'Today, 05 Sep';
+    if (status === 'completed') {
+      const now = new Date();
+      const day = now.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      updates.completed_date = `Today, ${day} ${monthNames[now.getMonth()]}`;
+    }
 
     const { error } = await supabase.from('bookings').update(updates).eq('id', bookingId);
     if (error) {

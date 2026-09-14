@@ -179,7 +179,11 @@ export function App() {
         paymentStatus: 'paid',
         paymentMethod: method,
         paidAmount: paidAmt,
-        completedDate: 'Today, 05 Sep',
+        completedDate: (() => {
+          const now = new Date();
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `Today, ${now.getDate()} ${monthNames[now.getMonth()]}`;
+        })(),
         ...(rating != null ? { ratingGiven: rating } : {}),
         ...(feedback != null ? { reviewComment: feedback } : {}),
       };

@@ -216,6 +216,12 @@ export const COOPERATIVE_TEAM_RAVI: TeamProfile = {
   members: INITIAL_TEAM_MEMBERS,
 };
 
+function getDynamicToday(): string {
+  const now = new Date();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `Today, ${now.getDate()} ${monthNames[now.getMonth()]}`;
+}
+
 export const INITIAL_BOOKINGS: Booking[] = [
   {
     id: 'CWS-8492',
@@ -223,7 +229,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     serviceName: 'Plumbing Repair',
     category: 'Plumbing',
     status: 'in-progress',
-    dateStr: 'Today, 05 Sep',
+    dateStr: getDynamicToday(),
     timeWindow: '2:00 PM - 4:00 PM',
     workerCount: 1,
     durationHours: 2,
